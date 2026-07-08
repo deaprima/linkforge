@@ -19,12 +19,14 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	LinkService_CreateLink_FullMethodName   = "/link.LinkService/CreateLink"
-	LinkService_GetLink_FullMethodName      = "/link.LinkService/GetLink"
-	LinkService_ListLinks_FullMethodName    = "/link.LinkService/ListLinks"
-	LinkService_UpdateLink_FullMethodName   = "/link.LinkService/UpdateLink"
-	LinkService_DeleteLink_FullMethodName   = "/link.LinkService/DeleteLink"
-	LinkService_ResolveAlias_FullMethodName = "/link.LinkService/ResolveAlias"
+	LinkService_CreateLink_FullMethodName         = "/link.LinkService/CreateLink"
+	LinkService_GetLink_FullMethodName            = "/link.LinkService/GetLink"
+	LinkService_ListLinks_FullMethodName          = "/link.LinkService/ListLinks"
+	LinkService_UpdateLink_FullMethodName         = "/link.LinkService/UpdateLink"
+	LinkService_DeleteLink_FullMethodName         = "/link.LinkService/DeleteLink"
+	LinkService_ResolveAlias_FullMethodName       = "/link.LinkService/ResolveAlias"
+	LinkService_VerifyLinkPassword_FullMethodName = "/link.LinkService/VerifyLinkPassword"
+	LinkService_GetUserLinkIDs_FullMethodName     = "/link.LinkService/GetUserLinkIDs"
 )
 
 // LinkServiceClient is the client API for LinkService service.
@@ -37,6 +39,8 @@ type LinkServiceClient interface {
 	UpdateLink(ctx context.Context, in *UpdateLinkRequest, opts ...grpc.CallOption) (*UpdateLinkResponse, error)
 	DeleteLink(ctx context.Context, in *DeleteLinkRequest, opts ...grpc.CallOption) (*DeleteLinkResponse, error)
 	ResolveAlias(ctx context.Context, in *ResolveAliasRequest, opts ...grpc.CallOption) (*ResolveAliasResponse, error)
+	VerifyLinkPassword(ctx context.Context, in *VerifyLinkPasswordRequest, opts ...grpc.CallOption) (*VerifyLinkPasswordResponse, error)
+	GetUserLinkIDs(ctx context.Context, in *GetUserLinkIDsRequest, opts ...grpc.CallOption) (*GetUserLinkIDsResponse, error)
 }
 
 type linkServiceClient struct {
@@ -107,6 +111,26 @@ func (c *linkServiceClient) ResolveAlias(ctx context.Context, in *ResolveAliasRe
 	return out, nil
 }
 
+func (c *linkServiceClient) VerifyLinkPassword(ctx context.Context, in *VerifyLinkPasswordRequest, opts ...grpc.CallOption) (*VerifyLinkPasswordResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(VerifyLinkPasswordResponse)
+	err := c.cc.Invoke(ctx, LinkService_VerifyLinkPassword_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *linkServiceClient) GetUserLinkIDs(ctx context.Context, in *GetUserLinkIDsRequest, opts ...grpc.CallOption) (*GetUserLinkIDsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetUserLinkIDsResponse)
+	err := c.cc.Invoke(ctx, LinkService_GetUserLinkIDs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // LinkServiceServer is the server API for LinkService service.
 // All implementations must embed UnimplementedLinkServiceServer
 // for forward compatibility.
@@ -117,6 +141,8 @@ type LinkServiceServer interface {
 	UpdateLink(context.Context, *UpdateLinkRequest) (*UpdateLinkResponse, error)
 	DeleteLink(context.Context, *DeleteLinkRequest) (*DeleteLinkResponse, error)
 	ResolveAlias(context.Context, *ResolveAliasRequest) (*ResolveAliasResponse, error)
+	VerifyLinkPassword(context.Context, *VerifyLinkPasswordRequest) (*VerifyLinkPasswordResponse, error)
+	GetUserLinkIDs(context.Context, *GetUserLinkIDsRequest) (*GetUserLinkIDsResponse, error)
 	mustEmbedUnimplementedLinkServiceServer()
 }
 
@@ -144,6 +170,12 @@ func (UnimplementedLinkServiceServer) DeleteLink(context.Context, *DeleteLinkReq
 }
 func (UnimplementedLinkServiceServer) ResolveAlias(context.Context, *ResolveAliasRequest) (*ResolveAliasResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ResolveAlias not implemented")
+}
+func (UnimplementedLinkServiceServer) VerifyLinkPassword(context.Context, *VerifyLinkPasswordRequest) (*VerifyLinkPasswordResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method VerifyLinkPassword not implemented")
+}
+func (UnimplementedLinkServiceServer) GetUserLinkIDs(context.Context, *GetUserLinkIDsRequest) (*GetUserLinkIDsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetUserLinkIDs not implemented")
 }
 func (UnimplementedLinkServiceServer) mustEmbedUnimplementedLinkServiceServer() {}
 func (UnimplementedLinkServiceServer) testEmbeddedByValue()                     {}
@@ -274,6 +306,42 @@ func _LinkService_ResolveAlias_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LinkService_VerifyLinkPassword_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VerifyLinkPasswordRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LinkServiceServer).VerifyLinkPassword(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LinkService_VerifyLinkPassword_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LinkServiceServer).VerifyLinkPassword(ctx, req.(*VerifyLinkPasswordRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LinkService_GetUserLinkIDs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserLinkIDsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LinkServiceServer).GetUserLinkIDs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LinkService_GetUserLinkIDs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LinkServiceServer).GetUserLinkIDs(ctx, req.(*GetUserLinkIDsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // LinkService_ServiceDesc is the grpc.ServiceDesc for LinkService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -304,6 +372,14 @@ var LinkService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ResolveAlias",
 			Handler:    _LinkService_ResolveAlias_Handler,
+		},
+		{
+			MethodName: "VerifyLinkPassword",
+			Handler:    _LinkService_VerifyLinkPassword_Handler,
+		},
+		{
+			MethodName: "GetUserLinkIDs",
+			Handler:    _LinkService_GetUserLinkIDs_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

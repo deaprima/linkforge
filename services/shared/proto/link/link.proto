@@ -18,6 +18,7 @@ message Link {
   google.protobuf.Timestamp expired_at  = 7; // nullable
   google.protobuf.Timestamp created_at  = 8;
   google.protobuf.Timestamp updated_at  = 9;
+  bool   has_password = 10;
 }
 
 // Request & Response
@@ -27,6 +28,7 @@ message CreateLinkRequest {
   string original_url = 2;
   string alias        = 3; // opsional, kosong = auto-generate
   google.protobuf.Timestamp expired_at = 4; // opsional
+  string password     = 5; // opsional (v1.5)
 }
 message CreateLinkResponse {
   Link link = 1;
@@ -77,6 +79,24 @@ message ResolveAliasResponse {
   string link_id      = 1;
   string original_url = 2;
   bool   is_expired   = 3;
+  bool   has_password = 4;
+}
+
+message VerifyLinkPasswordRequest {
+  string alias    = 1;
+  string password = 2;
+}
+message VerifyLinkPasswordResponse {
+  bool   is_valid     = 1;
+  string link_id      = 2;
+  string original_url = 3;
+}
+
+message GetUserLinkIDsRequest {
+  string user_id = 1;
+}
+message GetUserLinkIDsResponse {
+  repeated string link_ids = 1;
 }
 
 // Service Definition
@@ -88,4 +108,6 @@ service LinkService {
   rpc UpdateLink(UpdateLinkRequest)       returns (UpdateLinkResponse);
   rpc DeleteLink(DeleteLinkRequest)       returns (DeleteLinkResponse);
   rpc ResolveAlias(ResolveAliasRequest)   returns (ResolveAliasResponse);
+  rpc VerifyLinkPassword(VerifyLinkPasswordRequest) returns (VerifyLinkPasswordResponse);
+  rpc GetUserLinkIDs(GetUserLinkIDsRequest) returns (GetUserLinkIDsResponse);
 }

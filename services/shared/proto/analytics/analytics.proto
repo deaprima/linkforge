@@ -52,6 +52,7 @@ message GetLinkAnalyticsResponse {
 
 message GetSummaryRequest {
   string user_id = 1;
+  repeated string link_ids = 2; // API composition: list link milik user
 }
 message GetSummaryResponse {
   int64  total_links  = 1;
@@ -59,9 +60,24 @@ message GetSummaryResponse {
   repeated TopLink top_links = 3;
 }
 
+message SubscribeRealtimeRequest {
+  string user_id = 1;
+  repeated string link_ids = 2; // Filter click events hanya untuk link milik user ini
+}
+
+message ClickEvent {
+  string link_id   = 1;
+  string alias     = 2;
+  string country   = 3;
+  string browser   = 4;
+  string device    = 5;
+  string timestamp = 6; // ISO timestamp
+}
+
 // Service Definition
 
 service AnalyticsService {
   rpc GetLinkAnalytics(GetLinkAnalyticsRequest) returns (GetLinkAnalyticsResponse);
   rpc GetSummary(GetSummaryRequest)             returns (GetSummaryResponse);
+  rpc SubscribeRealtime(SubscribeRealtimeRequest) returns (stream ClickEvent);
 }

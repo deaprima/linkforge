@@ -33,6 +33,7 @@ type Link struct {
 	ExpiredAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=expired_at,json=expiredAt,proto3" json:"expired_at,omitempty"` // nullable
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	HasPassword   bool                   `protobuf:"varint,10,opt,name=has_password,json=hasPassword,proto3" json:"has_password,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -130,12 +131,20 @@ func (x *Link) GetUpdatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *Link) GetHasPassword() bool {
+	if x != nil {
+		return x.HasPassword
+	}
+	return false
+}
+
 type CreateLinkRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	OriginalUrl   string                 `protobuf:"bytes,2,opt,name=original_url,json=originalUrl,proto3" json:"original_url,omitempty"`
 	Alias         string                 `protobuf:"bytes,3,opt,name=alias,proto3" json:"alias,omitempty"`                          // opsional, kosong = auto-generate
 	ExpiredAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=expired_at,json=expiredAt,proto3" json:"expired_at,omitempty"` // opsional
+	Password      string                 `protobuf:"bytes,5,opt,name=password,proto3" json:"password,omitempty"`                    // opsional (v1.5)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -196,6 +205,13 @@ func (x *CreateLinkRequest) GetExpiredAt() *timestamppb.Timestamp {
 		return x.ExpiredAt
 	}
 	return nil
+}
+
+func (x *CreateLinkRequest) GetPassword() string {
+	if x != nil {
+		return x.Password
+	}
+	return ""
 }
 
 type CreateLinkResponse struct {
@@ -716,6 +732,7 @@ type ResolveAliasResponse struct {
 	LinkId        string                 `protobuf:"bytes,1,opt,name=link_id,json=linkId,proto3" json:"link_id,omitempty"`
 	OriginalUrl   string                 `protobuf:"bytes,2,opt,name=original_url,json=originalUrl,proto3" json:"original_url,omitempty"`
 	IsExpired     bool                   `protobuf:"varint,3,opt,name=is_expired,json=isExpired,proto3" json:"is_expired,omitempty"`
+	HasPassword   bool                   `protobuf:"varint,4,opt,name=has_password,json=hasPassword,proto3" json:"has_password,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -771,11 +788,218 @@ func (x *ResolveAliasResponse) GetIsExpired() bool {
 	return false
 }
 
+func (x *ResolveAliasResponse) GetHasPassword() bool {
+	if x != nil {
+		return x.HasPassword
+	}
+	return false
+}
+
+type VerifyLinkPasswordRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Alias         string                 `protobuf:"bytes,1,opt,name=alias,proto3" json:"alias,omitempty"`
+	Password      string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *VerifyLinkPasswordRequest) Reset() {
+	*x = VerifyLinkPasswordRequest{}
+	mi := &file_shared_proto_link_link_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VerifyLinkPasswordRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VerifyLinkPasswordRequest) ProtoMessage() {}
+
+func (x *VerifyLinkPasswordRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shared_proto_link_link_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VerifyLinkPasswordRequest.ProtoReflect.Descriptor instead.
+func (*VerifyLinkPasswordRequest) Descriptor() ([]byte, []int) {
+	return file_shared_proto_link_link_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *VerifyLinkPasswordRequest) GetAlias() string {
+	if x != nil {
+		return x.Alias
+	}
+	return ""
+}
+
+func (x *VerifyLinkPasswordRequest) GetPassword() string {
+	if x != nil {
+		return x.Password
+	}
+	return ""
+}
+
+type VerifyLinkPasswordResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	IsValid       bool                   `protobuf:"varint,1,opt,name=is_valid,json=isValid,proto3" json:"is_valid,omitempty"`
+	LinkId        string                 `protobuf:"bytes,2,opt,name=link_id,json=linkId,proto3" json:"link_id,omitempty"`
+	OriginalUrl   string                 `protobuf:"bytes,3,opt,name=original_url,json=originalUrl,proto3" json:"original_url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *VerifyLinkPasswordResponse) Reset() {
+	*x = VerifyLinkPasswordResponse{}
+	mi := &file_shared_proto_link_link_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VerifyLinkPasswordResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VerifyLinkPasswordResponse) ProtoMessage() {}
+
+func (x *VerifyLinkPasswordResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shared_proto_link_link_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VerifyLinkPasswordResponse.ProtoReflect.Descriptor instead.
+func (*VerifyLinkPasswordResponse) Descriptor() ([]byte, []int) {
+	return file_shared_proto_link_link_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *VerifyLinkPasswordResponse) GetIsValid() bool {
+	if x != nil {
+		return x.IsValid
+	}
+	return false
+}
+
+func (x *VerifyLinkPasswordResponse) GetLinkId() string {
+	if x != nil {
+		return x.LinkId
+	}
+	return ""
+}
+
+func (x *VerifyLinkPasswordResponse) GetOriginalUrl() string {
+	if x != nil {
+		return x.OriginalUrl
+	}
+	return ""
+}
+
+type GetUserLinkIDsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetUserLinkIDsRequest) Reset() {
+	*x = GetUserLinkIDsRequest{}
+	mi := &file_shared_proto_link_link_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetUserLinkIDsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetUserLinkIDsRequest) ProtoMessage() {}
+
+func (x *GetUserLinkIDsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shared_proto_link_link_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetUserLinkIDsRequest.ProtoReflect.Descriptor instead.
+func (*GetUserLinkIDsRequest) Descriptor() ([]byte, []int) {
+	return file_shared_proto_link_link_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *GetUserLinkIDsRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type GetUserLinkIDsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	LinkIds       []string               `protobuf:"bytes,1,rep,name=link_ids,json=linkIds,proto3" json:"link_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetUserLinkIDsResponse) Reset() {
+	*x = GetUserLinkIDsResponse{}
+	mi := &file_shared_proto_link_link_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetUserLinkIDsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetUserLinkIDsResponse) ProtoMessage() {}
+
+func (x *GetUserLinkIDsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shared_proto_link_link_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetUserLinkIDsResponse.ProtoReflect.Descriptor instead.
+func (*GetUserLinkIDsResponse) Descriptor() ([]byte, []int) {
+	return file_shared_proto_link_link_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *GetUserLinkIDsResponse) GetLinkIds() []string {
+	if x != nil {
+		return x.LinkIds
+	}
+	return nil
+}
+
 var File_shared_proto_link_link_proto protoreflect.FileDescriptor
 
 const file_shared_proto_link_link_proto_rawDesc = "" +
 	"\n" +
-	"\x1cshared/proto/link/link.proto\x12\x04link\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd7\x02\n" +
+	"\x1cshared/proto/link/link.proto\x12\x04link\x1a\x1fgoogle/protobuf/timestamp.proto\"\xfa\x02\n" +
 	"\x04Link\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\x12!\n" +
@@ -789,13 +1013,16 @@ const file_shared_proto_link_link_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xa0\x01\n" +
+	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12!\n" +
+	"\fhas_password\x18\n" +
+	" \x01(\bR\vhasPassword\"\xbc\x01\n" +
 	"\x11CreateLinkRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12!\n" +
 	"\foriginal_url\x18\x02 \x01(\tR\voriginalUrl\x12\x14\n" +
 	"\x05alias\x18\x03 \x01(\tR\x05alias\x129\n" +
 	"\n" +
-	"expired_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\texpiredAt\"4\n" +
+	"expired_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\texpiredAt\x12\x1a\n" +
+	"\bpassword\x18\x05 \x01(\tR\bpassword\"4\n" +
 	"\x12CreateLinkResponse\x12\x1e\n" +
 	"\x04link\x18\x01 \x01(\v2\n" +
 	".link.LinkR\x04link\"B\n" +
@@ -829,12 +1056,24 @@ const file_shared_proto_link_link_proto_rawDesc = "" +
 	"\x12DeleteLinkResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\"+\n" +
 	"\x13ResolveAliasRequest\x12\x14\n" +
-	"\x05alias\x18\x01 \x01(\tR\x05alias\"q\n" +
+	"\x05alias\x18\x01 \x01(\tR\x05alias\"\x94\x01\n" +
 	"\x14ResolveAliasResponse\x12\x17\n" +
 	"\alink_id\x18\x01 \x01(\tR\x06linkId\x12!\n" +
 	"\foriginal_url\x18\x02 \x01(\tR\voriginalUrl\x12\x1d\n" +
 	"\n" +
-	"is_expired\x18\x03 \x01(\bR\tisExpired2\x8d\x03\n" +
+	"is_expired\x18\x03 \x01(\bR\tisExpired\x12!\n" +
+	"\fhas_password\x18\x04 \x01(\bR\vhasPassword\"M\n" +
+	"\x19VerifyLinkPasswordRequest\x12\x14\n" +
+	"\x05alias\x18\x01 \x01(\tR\x05alias\x12\x1a\n" +
+	"\bpassword\x18\x02 \x01(\tR\bpassword\"s\n" +
+	"\x1aVerifyLinkPasswordResponse\x12\x19\n" +
+	"\bis_valid\x18\x01 \x01(\bR\aisValid\x12\x17\n" +
+	"\alink_id\x18\x02 \x01(\tR\x06linkId\x12!\n" +
+	"\foriginal_url\x18\x03 \x01(\tR\voriginalUrl\"0\n" +
+	"\x15GetUserLinkIDsRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"3\n" +
+	"\x16GetUserLinkIDsResponse\x12\x19\n" +
+	"\blink_ids\x18\x01 \x03(\tR\alinkIds2\xb3\x04\n" +
 	"\vLinkService\x12?\n" +
 	"\n" +
 	"CreateLink\x12\x17.link.CreateLinkRequest\x1a\x18.link.CreateLinkResponse\x126\n" +
@@ -844,7 +1083,9 @@ const file_shared_proto_link_link_proto_rawDesc = "" +
 	"UpdateLink\x12\x17.link.UpdateLinkRequest\x1a\x18.link.UpdateLinkResponse\x12?\n" +
 	"\n" +
 	"DeleteLink\x12\x17.link.DeleteLinkRequest\x1a\x18.link.DeleteLinkResponse\x12E\n" +
-	"\fResolveAlias\x12\x19.link.ResolveAliasRequest\x1a\x1a.link.ResolveAliasResponseB:Z8github.com/deaprima/linkforge/services/shared/proto/linkb\x06proto3"
+	"\fResolveAlias\x12\x19.link.ResolveAliasRequest\x1a\x1a.link.ResolveAliasResponse\x12W\n" +
+	"\x12VerifyLinkPassword\x12\x1f.link.VerifyLinkPasswordRequest\x1a .link.VerifyLinkPasswordResponse\x12K\n" +
+	"\x0eGetUserLinkIDs\x12\x1b.link.GetUserLinkIDsRequest\x1a\x1c.link.GetUserLinkIDsResponseB:Z8github.com/deaprima/linkforge/services/shared/proto/linkb\x06proto3"
 
 var (
 	file_shared_proto_link_link_proto_rawDescOnce sync.Once
@@ -858,32 +1099,36 @@ func file_shared_proto_link_link_proto_rawDescGZIP() []byte {
 	return file_shared_proto_link_link_proto_rawDescData
 }
 
-var file_shared_proto_link_link_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_shared_proto_link_link_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_shared_proto_link_link_proto_goTypes = []any{
-	(*Link)(nil),                  // 0: link.Link
-	(*CreateLinkRequest)(nil),     // 1: link.CreateLinkRequest
-	(*CreateLinkResponse)(nil),    // 2: link.CreateLinkResponse
-	(*GetLinkRequest)(nil),        // 3: link.GetLinkRequest
-	(*GetLinkResponse)(nil),       // 4: link.GetLinkResponse
-	(*ListLinksRequest)(nil),      // 5: link.ListLinksRequest
-	(*ListLinksResponse)(nil),     // 6: link.ListLinksResponse
-	(*UpdateLinkRequest)(nil),     // 7: link.UpdateLinkRequest
-	(*UpdateLinkResponse)(nil),    // 8: link.UpdateLinkResponse
-	(*DeleteLinkRequest)(nil),     // 9: link.DeleteLinkRequest
-	(*DeleteLinkResponse)(nil),    // 10: link.DeleteLinkResponse
-	(*ResolveAliasRequest)(nil),   // 11: link.ResolveAliasRequest
-	(*ResolveAliasResponse)(nil),  // 12: link.ResolveAliasResponse
-	(*timestamppb.Timestamp)(nil), // 13: google.protobuf.Timestamp
+	(*Link)(nil),                       // 0: link.Link
+	(*CreateLinkRequest)(nil),          // 1: link.CreateLinkRequest
+	(*CreateLinkResponse)(nil),         // 2: link.CreateLinkResponse
+	(*GetLinkRequest)(nil),             // 3: link.GetLinkRequest
+	(*GetLinkResponse)(nil),            // 4: link.GetLinkResponse
+	(*ListLinksRequest)(nil),           // 5: link.ListLinksRequest
+	(*ListLinksResponse)(nil),          // 6: link.ListLinksResponse
+	(*UpdateLinkRequest)(nil),          // 7: link.UpdateLinkRequest
+	(*UpdateLinkResponse)(nil),         // 8: link.UpdateLinkResponse
+	(*DeleteLinkRequest)(nil),          // 9: link.DeleteLinkRequest
+	(*DeleteLinkResponse)(nil),         // 10: link.DeleteLinkResponse
+	(*ResolveAliasRequest)(nil),        // 11: link.ResolveAliasRequest
+	(*ResolveAliasResponse)(nil),       // 12: link.ResolveAliasResponse
+	(*VerifyLinkPasswordRequest)(nil),  // 13: link.VerifyLinkPasswordRequest
+	(*VerifyLinkPasswordResponse)(nil), // 14: link.VerifyLinkPasswordResponse
+	(*GetUserLinkIDsRequest)(nil),      // 15: link.GetUserLinkIDsRequest
+	(*GetUserLinkIDsResponse)(nil),     // 16: link.GetUserLinkIDsResponse
+	(*timestamppb.Timestamp)(nil),      // 17: google.protobuf.Timestamp
 }
 var file_shared_proto_link_link_proto_depIdxs = []int32{
-	13, // 0: link.Link.expired_at:type_name -> google.protobuf.Timestamp
-	13, // 1: link.Link.created_at:type_name -> google.protobuf.Timestamp
-	13, // 2: link.Link.updated_at:type_name -> google.protobuf.Timestamp
-	13, // 3: link.CreateLinkRequest.expired_at:type_name -> google.protobuf.Timestamp
+	17, // 0: link.Link.expired_at:type_name -> google.protobuf.Timestamp
+	17, // 1: link.Link.created_at:type_name -> google.protobuf.Timestamp
+	17, // 2: link.Link.updated_at:type_name -> google.protobuf.Timestamp
+	17, // 3: link.CreateLinkRequest.expired_at:type_name -> google.protobuf.Timestamp
 	0,  // 4: link.CreateLinkResponse.link:type_name -> link.Link
 	0,  // 5: link.GetLinkResponse.link:type_name -> link.Link
 	0,  // 6: link.ListLinksResponse.links:type_name -> link.Link
-	13, // 7: link.UpdateLinkRequest.expired_at:type_name -> google.protobuf.Timestamp
+	17, // 7: link.UpdateLinkRequest.expired_at:type_name -> google.protobuf.Timestamp
 	0,  // 8: link.UpdateLinkResponse.link:type_name -> link.Link
 	1,  // 9: link.LinkService.CreateLink:input_type -> link.CreateLinkRequest
 	3,  // 10: link.LinkService.GetLink:input_type -> link.GetLinkRequest
@@ -891,14 +1136,18 @@ var file_shared_proto_link_link_proto_depIdxs = []int32{
 	7,  // 12: link.LinkService.UpdateLink:input_type -> link.UpdateLinkRequest
 	9,  // 13: link.LinkService.DeleteLink:input_type -> link.DeleteLinkRequest
 	11, // 14: link.LinkService.ResolveAlias:input_type -> link.ResolveAliasRequest
-	2,  // 15: link.LinkService.CreateLink:output_type -> link.CreateLinkResponse
-	4,  // 16: link.LinkService.GetLink:output_type -> link.GetLinkResponse
-	6,  // 17: link.LinkService.ListLinks:output_type -> link.ListLinksResponse
-	8,  // 18: link.LinkService.UpdateLink:output_type -> link.UpdateLinkResponse
-	10, // 19: link.LinkService.DeleteLink:output_type -> link.DeleteLinkResponse
-	12, // 20: link.LinkService.ResolveAlias:output_type -> link.ResolveAliasResponse
-	15, // [15:21] is the sub-list for method output_type
-	9,  // [9:15] is the sub-list for method input_type
+	13, // 15: link.LinkService.VerifyLinkPassword:input_type -> link.VerifyLinkPasswordRequest
+	15, // 16: link.LinkService.GetUserLinkIDs:input_type -> link.GetUserLinkIDsRequest
+	2,  // 17: link.LinkService.CreateLink:output_type -> link.CreateLinkResponse
+	4,  // 18: link.LinkService.GetLink:output_type -> link.GetLinkResponse
+	6,  // 19: link.LinkService.ListLinks:output_type -> link.ListLinksResponse
+	8,  // 20: link.LinkService.UpdateLink:output_type -> link.UpdateLinkResponse
+	10, // 21: link.LinkService.DeleteLink:output_type -> link.DeleteLinkResponse
+	12, // 22: link.LinkService.ResolveAlias:output_type -> link.ResolveAliasResponse
+	14, // 23: link.LinkService.VerifyLinkPassword:output_type -> link.VerifyLinkPasswordResponse
+	16, // 24: link.LinkService.GetUserLinkIDs:output_type -> link.GetUserLinkIDsResponse
+	17, // [17:25] is the sub-list for method output_type
+	9,  // [9:17] is the sub-list for method input_type
 	9,  // [9:9] is the sub-list for extension type_name
 	9,  // [9:9] is the sub-list for extension extendee
 	0,  // [0:9] is the sub-list for field type_name
@@ -915,7 +1164,7 @@ func file_shared_proto_link_link_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shared_proto_link_link_proto_rawDesc), len(file_shared_proto_link_link_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   13,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

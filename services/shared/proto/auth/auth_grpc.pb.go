@@ -19,15 +19,16 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AuthService_Register_FullMethodName      = "/auth.AuthService/Register"
-	AuthService_Login_FullMethodName         = "/auth.AuthService/Login"
-	AuthService_RefreshToken_FullMethodName  = "/auth.AuthService/RefreshToken"
-	AuthService_Logout_FullMethodName        = "/auth.AuthService/Logout"
-	AuthService_ValidateToken_FullMethodName = "/auth.AuthService/ValidateToken"
-	AuthService_GetUser_FullMethodName       = "/auth.AuthService/GetUser"
-	AuthService_CreateApiKey_FullMethodName  = "/auth.AuthService/CreateApiKey"
-	AuthService_ListApiKeys_FullMethodName   = "/auth.AuthService/ListApiKeys"
-	AuthService_DeleteApiKey_FullMethodName  = "/auth.AuthService/DeleteApiKey"
+	AuthService_Register_FullMethodName       = "/auth.AuthService/Register"
+	AuthService_Login_FullMethodName          = "/auth.AuthService/Login"
+	AuthService_RefreshToken_FullMethodName   = "/auth.AuthService/RefreshToken"
+	AuthService_Logout_FullMethodName         = "/auth.AuthService/Logout"
+	AuthService_ValidateToken_FullMethodName  = "/auth.AuthService/ValidateToken"
+	AuthService_GetUser_FullMethodName        = "/auth.AuthService/GetUser"
+	AuthService_CreateApiKey_FullMethodName   = "/auth.AuthService/CreateApiKey"
+	AuthService_ListApiKeys_FullMethodName    = "/auth.AuthService/ListApiKeys"
+	AuthService_DeleteApiKey_FullMethodName   = "/auth.AuthService/DeleteApiKey"
+	AuthService_ValidateApiKey_FullMethodName = "/auth.AuthService/ValidateApiKey"
 )
 
 // AuthServiceClient is the client API for AuthService service.
@@ -43,6 +44,7 @@ type AuthServiceClient interface {
 	CreateApiKey(ctx context.Context, in *CreateApiKeyRequest, opts ...grpc.CallOption) (*CreateApiKeyResponse, error)
 	ListApiKeys(ctx context.Context, in *ListApiKeysRequest, opts ...grpc.CallOption) (*ListApiKeysResponse, error)
 	DeleteApiKey(ctx context.Context, in *DeleteApiKeyRequest, opts ...grpc.CallOption) (*DeleteApiKeyResponse, error)
+	ValidateApiKey(ctx context.Context, in *ValidateApiKeyRequest, opts ...grpc.CallOption) (*ValidateApiKeyResponse, error)
 }
 
 type authServiceClient struct {
@@ -143,6 +145,16 @@ func (c *authServiceClient) DeleteApiKey(ctx context.Context, in *DeleteApiKeyRe
 	return out, nil
 }
 
+func (c *authServiceClient) ValidateApiKey(ctx context.Context, in *ValidateApiKeyRequest, opts ...grpc.CallOption) (*ValidateApiKeyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ValidateApiKeyResponse)
+	err := c.cc.Invoke(ctx, AuthService_ValidateApiKey_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AuthServiceServer is the server API for AuthService service.
 // All implementations must embed UnimplementedAuthServiceServer
 // for forward compatibility.
@@ -156,6 +168,7 @@ type AuthServiceServer interface {
 	CreateApiKey(context.Context, *CreateApiKeyRequest) (*CreateApiKeyResponse, error)
 	ListApiKeys(context.Context, *ListApiKeysRequest) (*ListApiKeysResponse, error)
 	DeleteApiKey(context.Context, *DeleteApiKeyRequest) (*DeleteApiKeyResponse, error)
+	ValidateApiKey(context.Context, *ValidateApiKeyRequest) (*ValidateApiKeyResponse, error)
 	mustEmbedUnimplementedAuthServiceServer()
 }
 
@@ -192,6 +205,9 @@ func (UnimplementedAuthServiceServer) ListApiKeys(context.Context, *ListApiKeysR
 }
 func (UnimplementedAuthServiceServer) DeleteApiKey(context.Context, *DeleteApiKeyRequest) (*DeleteApiKeyResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteApiKey not implemented")
+}
+func (UnimplementedAuthServiceServer) ValidateApiKey(context.Context, *ValidateApiKeyRequest) (*ValidateApiKeyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ValidateApiKey not implemented")
 }
 func (UnimplementedAuthServiceServer) mustEmbedUnimplementedAuthServiceServer() {}
 func (UnimplementedAuthServiceServer) testEmbeddedByValue()                     {}
@@ -376,6 +392,24 @@ func _AuthService_DeleteApiKey_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AuthService_ValidateApiKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ValidateApiKeyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).ValidateApiKey(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_ValidateApiKey_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).ValidateApiKey(ctx, req.(*ValidateApiKeyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AuthService_ServiceDesc is the grpc.ServiceDesc for AuthService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -418,6 +452,10 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteApiKey",
 			Handler:    _AuthService_DeleteApiKey_Handler,
+		},
+		{
+			MethodName: "ValidateApiKey",
+			Handler:    _AuthService_ValidateApiKey_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

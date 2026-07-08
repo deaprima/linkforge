@@ -19,8 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AnalyticsService_GetLinkAnalytics_FullMethodName = "/analytics.AnalyticsService/GetLinkAnalytics"
-	AnalyticsService_GetSummary_FullMethodName       = "/analytics.AnalyticsService/GetSummary"
+	AnalyticsService_GetLinkAnalytics_FullMethodName  = "/analytics.AnalyticsService/GetLinkAnalytics"
+	AnalyticsService_GetSummary_FullMethodName        = "/analytics.AnalyticsService/GetSummary"
+	AnalyticsService_SubscribeRealtime_FullMethodName = "/analytics.AnalyticsService/SubscribeRealtime"
 )
 
 // AnalyticsServiceClient is the client API for AnalyticsService service.
@@ -29,6 +30,7 @@ const (
 type AnalyticsServiceClient interface {
 	GetLinkAnalytics(ctx context.Context, in *GetLinkAnalyticsRequest, opts ...grpc.CallOption) (*GetLinkAnalyticsResponse, error)
 	GetSummary(ctx context.Context, in *GetSummaryRequest, opts ...grpc.CallOption) (*GetSummaryResponse, error)
+	SubscribeRealtime(ctx context.Context, in *SubscribeRealtimeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ClickEvent], error)
 }
 
 type analyticsServiceClient struct {
@@ -59,12 +61,32 @@ func (c *analyticsServiceClient) GetSummary(ctx context.Context, in *GetSummaryR
 	return out, nil
 }
 
+func (c *analyticsServiceClient) SubscribeRealtime(ctx context.Context, in *SubscribeRealtimeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ClickEvent], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &AnalyticsService_ServiceDesc.Streams[0], AnalyticsService_SubscribeRealtime_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[SubscribeRealtimeRequest, ClickEvent]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type AnalyticsService_SubscribeRealtimeClient = grpc.ServerStreamingClient[ClickEvent]
+
 // AnalyticsServiceServer is the server API for AnalyticsService service.
 // All implementations must embed UnimplementedAnalyticsServiceServer
 // for forward compatibility.
 type AnalyticsServiceServer interface {
 	GetLinkAnalytics(context.Context, *GetLinkAnalyticsRequest) (*GetLinkAnalyticsResponse, error)
 	GetSummary(context.Context, *GetSummaryRequest) (*GetSummaryResponse, error)
+	SubscribeRealtime(*SubscribeRealtimeRequest, grpc.ServerStreamingServer[ClickEvent]) error
 	mustEmbedUnimplementedAnalyticsServiceServer()
 }
 
@@ -80,6 +102,9 @@ func (UnimplementedAnalyticsServiceServer) GetLinkAnalytics(context.Context, *Ge
 }
 func (UnimplementedAnalyticsServiceServer) GetSummary(context.Context, *GetSummaryRequest) (*GetSummaryResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetSummary not implemented")
+}
+func (UnimplementedAnalyticsServiceServer) SubscribeRealtime(*SubscribeRealtimeRequest, grpc.ServerStreamingServer[ClickEvent]) error {
+	return status.Error(codes.Unimplemented, "method SubscribeRealtime not implemented")
 }
 func (UnimplementedAnalyticsServiceServer) mustEmbedUnimplementedAnalyticsServiceServer() {}
 func (UnimplementedAnalyticsServiceServer) testEmbeddedByValue()                          {}
@@ -138,6 +163,17 @@ func _AnalyticsService_GetSummary_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AnalyticsService_SubscribeRealtime_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(SubscribeRealtimeRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(AnalyticsServiceServer).SubscribeRealtime(m, &grpc.GenericServerStream[SubscribeRealtimeRequest, ClickEvent]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type AnalyticsService_SubscribeRealtimeServer = grpc.ServerStreamingServer[ClickEvent]
+
 // AnalyticsService_ServiceDesc is the grpc.ServiceDesc for AnalyticsService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -154,6 +190,12 @@ var AnalyticsService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _AnalyticsService_GetSummary_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "SubscribeRealtime",
+			Handler:       _AnalyticsService_SubscribeRealtime_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "shared/proto/analytics/analytics.proto",
 }

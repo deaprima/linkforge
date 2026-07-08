@@ -1084,6 +1084,102 @@ func (x *DeleteApiKeyResponse) GetSuccess() bool {
 	return false
 }
 
+type ValidateApiKeyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ApiKey        string                 `protobuf:"bytes,1,opt,name=api_key,json=apiKey,proto3" json:"api_key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ValidateApiKeyRequest) Reset() {
+	*x = ValidateApiKeyRequest{}
+	mi := &file_shared_proto_auth_auth_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ValidateApiKeyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ValidateApiKeyRequest) ProtoMessage() {}
+
+func (x *ValidateApiKeyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shared_proto_auth_auth_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ValidateApiKeyRequest.ProtoReflect.Descriptor instead.
+func (*ValidateApiKeyRequest) Descriptor() ([]byte, []int) {
+	return file_shared_proto_auth_auth_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *ValidateApiKeyRequest) GetApiKey() string {
+	if x != nil {
+		return x.ApiKey
+	}
+	return ""
+}
+
+type ValidateApiKeyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	IsValid       bool                   `protobuf:"varint,1,opt,name=is_valid,json=isValid,proto3" json:"is_valid,omitempty"`
+	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ValidateApiKeyResponse) Reset() {
+	*x = ValidateApiKeyResponse{}
+	mi := &file_shared_proto_auth_auth_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ValidateApiKeyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ValidateApiKeyResponse) ProtoMessage() {}
+
+func (x *ValidateApiKeyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shared_proto_auth_auth_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ValidateApiKeyResponse.ProtoReflect.Descriptor instead.
+func (*ValidateApiKeyResponse) Descriptor() ([]byte, []int) {
+	return file_shared_proto_auth_auth_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *ValidateApiKeyResponse) GetIsValid() bool {
+	if x != nil {
+		return x.IsValid
+	}
+	return false
+}
+
+func (x *ValidateApiKeyResponse) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
 var File_shared_proto_auth_auth_proto protoreflect.FileDescriptor
 
 const file_shared_proto_auth_auth_proto_rawDesc = "" +
@@ -1154,7 +1250,12 @@ const file_shared_proto_auth_auth_proto_rawDesc = "" +
 	"\n" +
 	"api_key_id\x18\x02 \x01(\tR\bapiKeyId\"0\n" +
 	"\x14DeleteApiKeyResponse\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess2\xca\x04\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"0\n" +
+	"\x15ValidateApiKeyRequest\x12\x17\n" +
+	"\aapi_key\x18\x01 \x01(\tR\x06apiKey\"L\n" +
+	"\x16ValidateApiKeyResponse\x12\x19\n" +
+	"\bis_valid\x18\x01 \x01(\bR\aisValid\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId2\x97\x05\n" +
 	"\vAuthService\x129\n" +
 	"\bRegister\x12\x15.auth.RegisterRequest\x1a\x16.auth.RegisterResponse\x120\n" +
 	"\x05Login\x12\x12.auth.LoginRequest\x1a\x13.auth.LoginResponse\x12E\n" +
@@ -1164,7 +1265,8 @@ const file_shared_proto_auth_auth_proto_rawDesc = "" +
 	"\aGetUser\x12\x14.auth.GetUserRequest\x1a\x15.auth.GetUserResponse\x12E\n" +
 	"\fCreateApiKey\x12\x19.auth.CreateApiKeyRequest\x1a\x1a.auth.CreateApiKeyResponse\x12B\n" +
 	"\vListApiKeys\x12\x18.auth.ListApiKeysRequest\x1a\x19.auth.ListApiKeysResponse\x12E\n" +
-	"\fDeleteApiKey\x12\x19.auth.DeleteApiKeyRequest\x1a\x1a.auth.DeleteApiKeyResponseB:Z8github.com/deaprima/linkforge/services/shared/proto/authb\x06proto3"
+	"\fDeleteApiKey\x12\x19.auth.DeleteApiKeyRequest\x1a\x1a.auth.DeleteApiKeyResponse\x12K\n" +
+	"\x0eValidateApiKey\x12\x1b.auth.ValidateApiKeyRequest\x1a\x1c.auth.ValidateApiKeyResponseB:Z8github.com/deaprima/linkforge/services/shared/proto/authb\x06proto3"
 
 var (
 	file_shared_proto_auth_auth_proto_rawDescOnce sync.Once
@@ -1178,35 +1280,37 @@ func file_shared_proto_auth_auth_proto_rawDescGZIP() []byte {
 	return file_shared_proto_auth_auth_proto_rawDescData
 }
 
-var file_shared_proto_auth_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
+var file_shared_proto_auth_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
 var file_shared_proto_auth_auth_proto_goTypes = []any{
-	(*User)(nil),                  // 0: auth.User
-	(*TokenPair)(nil),             // 1: auth.TokenPair
-	(*ApiKey)(nil),                // 2: auth.ApiKey
-	(*RegisterRequest)(nil),       // 3: auth.RegisterRequest
-	(*RegisterResponse)(nil),      // 4: auth.RegisterResponse
-	(*LoginRequest)(nil),          // 5: auth.LoginRequest
-	(*LoginResponse)(nil),         // 6: auth.LoginResponse
-	(*RefreshTokenRequest)(nil),   // 7: auth.RefreshTokenRequest
-	(*RefreshTokenResponse)(nil),  // 8: auth.RefreshTokenResponse
-	(*LogoutRequest)(nil),         // 9: auth.LogoutRequest
-	(*LogoutResponse)(nil),        // 10: auth.LogoutResponse
-	(*ValidateTokenRequest)(nil),  // 11: auth.ValidateTokenRequest
-	(*ValidateTokenResponse)(nil), // 12: auth.ValidateTokenResponse
-	(*GetUserRequest)(nil),        // 13: auth.GetUserRequest
-	(*GetUserResponse)(nil),       // 14: auth.GetUserResponse
-	(*CreateApiKeyRequest)(nil),   // 15: auth.CreateApiKeyRequest
-	(*CreateApiKeyResponse)(nil),  // 16: auth.CreateApiKeyResponse
-	(*ListApiKeysRequest)(nil),    // 17: auth.ListApiKeysRequest
-	(*ListApiKeysResponse)(nil),   // 18: auth.ListApiKeysResponse
-	(*DeleteApiKeyRequest)(nil),   // 19: auth.DeleteApiKeyRequest
-	(*DeleteApiKeyResponse)(nil),  // 20: auth.DeleteApiKeyResponse
-	(*timestamppb.Timestamp)(nil), // 21: google.protobuf.Timestamp
+	(*User)(nil),                   // 0: auth.User
+	(*TokenPair)(nil),              // 1: auth.TokenPair
+	(*ApiKey)(nil),                 // 2: auth.ApiKey
+	(*RegisterRequest)(nil),        // 3: auth.RegisterRequest
+	(*RegisterResponse)(nil),       // 4: auth.RegisterResponse
+	(*LoginRequest)(nil),           // 5: auth.LoginRequest
+	(*LoginResponse)(nil),          // 6: auth.LoginResponse
+	(*RefreshTokenRequest)(nil),    // 7: auth.RefreshTokenRequest
+	(*RefreshTokenResponse)(nil),   // 8: auth.RefreshTokenResponse
+	(*LogoutRequest)(nil),          // 9: auth.LogoutRequest
+	(*LogoutResponse)(nil),         // 10: auth.LogoutResponse
+	(*ValidateTokenRequest)(nil),   // 11: auth.ValidateTokenRequest
+	(*ValidateTokenResponse)(nil),  // 12: auth.ValidateTokenResponse
+	(*GetUserRequest)(nil),         // 13: auth.GetUserRequest
+	(*GetUserResponse)(nil),        // 14: auth.GetUserResponse
+	(*CreateApiKeyRequest)(nil),    // 15: auth.CreateApiKeyRequest
+	(*CreateApiKeyResponse)(nil),   // 16: auth.CreateApiKeyResponse
+	(*ListApiKeysRequest)(nil),     // 17: auth.ListApiKeysRequest
+	(*ListApiKeysResponse)(nil),    // 18: auth.ListApiKeysResponse
+	(*DeleteApiKeyRequest)(nil),    // 19: auth.DeleteApiKeyRequest
+	(*DeleteApiKeyResponse)(nil),   // 20: auth.DeleteApiKeyResponse
+	(*ValidateApiKeyRequest)(nil),  // 21: auth.ValidateApiKeyRequest
+	(*ValidateApiKeyResponse)(nil), // 22: auth.ValidateApiKeyResponse
+	(*timestamppb.Timestamp)(nil),  // 23: google.protobuf.Timestamp
 }
 var file_shared_proto_auth_auth_proto_depIdxs = []int32{
-	21, // 0: auth.User.created_at:type_name -> google.protobuf.Timestamp
-	21, // 1: auth.ApiKey.last_used_at:type_name -> google.protobuf.Timestamp
-	21, // 2: auth.ApiKey.created_at:type_name -> google.protobuf.Timestamp
+	23, // 0: auth.User.created_at:type_name -> google.protobuf.Timestamp
+	23, // 1: auth.ApiKey.last_used_at:type_name -> google.protobuf.Timestamp
+	23, // 2: auth.ApiKey.created_at:type_name -> google.protobuf.Timestamp
 	0,  // 3: auth.RegisterResponse.user:type_name -> auth.User
 	1,  // 4: auth.RegisterResponse.tokens:type_name -> auth.TokenPair
 	0,  // 5: auth.LoginResponse.user:type_name -> auth.User
@@ -1224,17 +1328,19 @@ var file_shared_proto_auth_auth_proto_depIdxs = []int32{
 	15, // 17: auth.AuthService.CreateApiKey:input_type -> auth.CreateApiKeyRequest
 	17, // 18: auth.AuthService.ListApiKeys:input_type -> auth.ListApiKeysRequest
 	19, // 19: auth.AuthService.DeleteApiKey:input_type -> auth.DeleteApiKeyRequest
-	4,  // 20: auth.AuthService.Register:output_type -> auth.RegisterResponse
-	6,  // 21: auth.AuthService.Login:output_type -> auth.LoginResponse
-	8,  // 22: auth.AuthService.RefreshToken:output_type -> auth.RefreshTokenResponse
-	10, // 23: auth.AuthService.Logout:output_type -> auth.LogoutResponse
-	12, // 24: auth.AuthService.ValidateToken:output_type -> auth.ValidateTokenResponse
-	14, // 25: auth.AuthService.GetUser:output_type -> auth.GetUserResponse
-	16, // 26: auth.AuthService.CreateApiKey:output_type -> auth.CreateApiKeyResponse
-	18, // 27: auth.AuthService.ListApiKeys:output_type -> auth.ListApiKeysResponse
-	20, // 28: auth.AuthService.DeleteApiKey:output_type -> auth.DeleteApiKeyResponse
-	20, // [20:29] is the sub-list for method output_type
-	11, // [11:20] is the sub-list for method input_type
+	21, // 20: auth.AuthService.ValidateApiKey:input_type -> auth.ValidateApiKeyRequest
+	4,  // 21: auth.AuthService.Register:output_type -> auth.RegisterResponse
+	6,  // 22: auth.AuthService.Login:output_type -> auth.LoginResponse
+	8,  // 23: auth.AuthService.RefreshToken:output_type -> auth.RefreshTokenResponse
+	10, // 24: auth.AuthService.Logout:output_type -> auth.LogoutResponse
+	12, // 25: auth.AuthService.ValidateToken:output_type -> auth.ValidateTokenResponse
+	14, // 26: auth.AuthService.GetUser:output_type -> auth.GetUserResponse
+	16, // 27: auth.AuthService.CreateApiKey:output_type -> auth.CreateApiKeyResponse
+	18, // 28: auth.AuthService.ListApiKeys:output_type -> auth.ListApiKeysResponse
+	20, // 29: auth.AuthService.DeleteApiKey:output_type -> auth.DeleteApiKeyResponse
+	22, // 30: auth.AuthService.ValidateApiKey:output_type -> auth.ValidateApiKeyResponse
+	21, // [21:31] is the sub-list for method output_type
+	11, // [11:21] is the sub-list for method input_type
 	11, // [11:11] is the sub-list for extension type_name
 	11, // [11:11] is the sub-list for extension extendee
 	0,  // [0:11] is the sub-list for field type_name
@@ -1251,7 +1357,7 @@ func file_shared_proto_auth_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shared_proto_auth_auth_proto_rawDesc), len(file_shared_proto_auth_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   21,
+			NumMessages:   23,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

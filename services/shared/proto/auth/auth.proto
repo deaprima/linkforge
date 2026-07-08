@@ -106,6 +106,14 @@ message DeleteApiKeyResponse {
   bool success = 1;
 }
 
+message ValidateApiKeyRequest {
+  string api_key = 1;
+}
+message ValidateApiKeyResponse {
+  bool   is_valid = 1;
+  string user_id  = 2;
+}
+
 // Service Definition
 
 service AuthService {
@@ -116,7 +124,8 @@ service AuthService {
   rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
   rpc GetUser(GetUserRequest)             returns (GetUserResponse);
 
-  rpc CreateApiKey(CreateApiKeyRequest) returns (CreateApiKeyResponse);
-  rpc ListApiKeys(ListApiKeysRequest)   returns (ListApiKeysResponse);
-  rpc DeleteApiKey(DeleteApiKeyRequest) returns (DeleteApiKeyResponse);
+  rpc CreateApiKey(CreateApiKeyRequest)   returns (CreateApiKeyResponse);
+  rpc ListApiKeys(ListApiKeysRequest)     returns (ListApiKeysResponse);
+  rpc DeleteApiKey(DeleteApiKeyRequest)   returns (DeleteApiKeyResponse);
+  rpc ValidateApiKey(ValidateApiKeyRequest) returns (ValidateApiKeyResponse);
 }

@@ -452,6 +452,7 @@ func (x *GetLinkAnalyticsResponse) GetTimeSeries() []*DailyClickCount {
 type GetSummaryRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	LinkIds       []string               `protobuf:"bytes,2,rep,name=link_ids,json=linkIds,proto3" json:"link_ids,omitempty"` // API composition: list link milik user
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -491,6 +492,13 @@ func (x *GetSummaryRequest) GetUserId() string {
 		return x.UserId
 	}
 	return ""
+}
+
+func (x *GetSummaryRequest) GetLinkIds() []string {
+	if x != nil {
+		return x.LinkIds
+	}
+	return nil
 }
 
 type GetSummaryResponse struct {
@@ -553,6 +561,142 @@ func (x *GetSummaryResponse) GetTopLinks() []*TopLink {
 	return nil
 }
 
+type SubscribeRealtimeRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	LinkIds       []string               `protobuf:"bytes,2,rep,name=link_ids,json=linkIds,proto3" json:"link_ids,omitempty"` // Filter click events hanya untuk link milik user ini
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SubscribeRealtimeRequest) Reset() {
+	*x = SubscribeRealtimeRequest{}
+	mi := &file_shared_proto_analytics_analytics_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SubscribeRealtimeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SubscribeRealtimeRequest) ProtoMessage() {}
+
+func (x *SubscribeRealtimeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shared_proto_analytics_analytics_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SubscribeRealtimeRequest.ProtoReflect.Descriptor instead.
+func (*SubscribeRealtimeRequest) Descriptor() ([]byte, []int) {
+	return file_shared_proto_analytics_analytics_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *SubscribeRealtimeRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *SubscribeRealtimeRequest) GetLinkIds() []string {
+	if x != nil {
+		return x.LinkIds
+	}
+	return nil
+}
+
+type ClickEvent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	LinkId        string                 `protobuf:"bytes,1,opt,name=link_id,json=linkId,proto3" json:"link_id,omitempty"`
+	Alias         string                 `protobuf:"bytes,2,opt,name=alias,proto3" json:"alias,omitempty"`
+	Country       string                 `protobuf:"bytes,3,opt,name=country,proto3" json:"country,omitempty"`
+	Browser       string                 `protobuf:"bytes,4,opt,name=browser,proto3" json:"browser,omitempty"`
+	Device        string                 `protobuf:"bytes,5,opt,name=device,proto3" json:"device,omitempty"`
+	Timestamp     string                 `protobuf:"bytes,6,opt,name=timestamp,proto3" json:"timestamp,omitempty"` // ISO timestamp
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClickEvent) Reset() {
+	*x = ClickEvent{}
+	mi := &file_shared_proto_analytics_analytics_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClickEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClickEvent) ProtoMessage() {}
+
+func (x *ClickEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_shared_proto_analytics_analytics_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClickEvent.ProtoReflect.Descriptor instead.
+func (*ClickEvent) Descriptor() ([]byte, []int) {
+	return file_shared_proto_analytics_analytics_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *ClickEvent) GetLinkId() string {
+	if x != nil {
+		return x.LinkId
+	}
+	return ""
+}
+
+func (x *ClickEvent) GetAlias() string {
+	if x != nil {
+		return x.Alias
+	}
+	return ""
+}
+
+func (x *ClickEvent) GetCountry() string {
+	if x != nil {
+		return x.Country
+	}
+	return ""
+}
+
+func (x *ClickEvent) GetBrowser() string {
+	if x != nil {
+		return x.Browser
+	}
+	return ""
+}
+
+func (x *ClickEvent) GetDevice() string {
+	if x != nil {
+		return x.Device
+	}
+	return ""
+}
+
+func (x *ClickEvent) GetTimestamp() string {
+	if x != nil {
+		return x.Timestamp
+	}
+	return ""
+}
+
 var File_shared_proto_analytics_analytics_proto protoreflect.FileDescriptor
 
 const file_shared_proto_analytics_analytics_proto_rawDesc = "" +
@@ -588,18 +732,31 @@ const file_shared_proto_analytics_analytics_proto_rawDesc = "" +
 	"\vtop_devices\x18\x06 \x03(\v2\x16.analytics.DeviceCountR\n" +
 	"topDevices\x12;\n" +
 	"\vtime_series\x18\a \x03(\v2\x1a.analytics.DailyClickCountR\n" +
-	"timeSeries\",\n" +
+	"timeSeries\"G\n" +
 	"\x11GetSummaryRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\"\x89\x01\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x19\n" +
+	"\blink_ids\x18\x02 \x03(\tR\alinkIds\"\x89\x01\n" +
 	"\x12GetSummaryResponse\x12\x1f\n" +
 	"\vtotal_links\x18\x01 \x01(\x03R\n" +
 	"totalLinks\x12!\n" +
 	"\ftotal_clicks\x18\x02 \x01(\x03R\vtotalClicks\x12/\n" +
-	"\ttop_links\x18\x03 \x03(\v2\x12.analytics.TopLinkR\btopLinks2\xba\x01\n" +
+	"\ttop_links\x18\x03 \x03(\v2\x12.analytics.TopLinkR\btopLinks\"N\n" +
+	"\x18SubscribeRealtimeRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x19\n" +
+	"\blink_ids\x18\x02 \x03(\tR\alinkIds\"\xa5\x01\n" +
+	"\n" +
+	"ClickEvent\x12\x17\n" +
+	"\alink_id\x18\x01 \x01(\tR\x06linkId\x12\x14\n" +
+	"\x05alias\x18\x02 \x01(\tR\x05alias\x12\x18\n" +
+	"\acountry\x18\x03 \x01(\tR\acountry\x12\x18\n" +
+	"\abrowser\x18\x04 \x01(\tR\abrowser\x12\x16\n" +
+	"\x06device\x18\x05 \x01(\tR\x06device\x12\x1c\n" +
+	"\ttimestamp\x18\x06 \x01(\tR\ttimestamp2\x8d\x02\n" +
 	"\x10AnalyticsService\x12[\n" +
 	"\x10GetLinkAnalytics\x12\".analytics.GetLinkAnalyticsRequest\x1a#.analytics.GetLinkAnalyticsResponse\x12I\n" +
 	"\n" +
-	"GetSummary\x12\x1c.analytics.GetSummaryRequest\x1a\x1d.analytics.GetSummaryResponseB?Z=github.com/deaprima/linkforge/services/shared/proto/analyticsb\x06proto3"
+	"GetSummary\x12\x1c.analytics.GetSummaryRequest\x1a\x1d.analytics.GetSummaryResponse\x12Q\n" +
+	"\x11SubscribeRealtime\x12#.analytics.SubscribeRealtimeRequest\x1a\x15.analytics.ClickEvent0\x01B?Z=github.com/deaprima/linkforge/services/shared/proto/analyticsb\x06proto3"
 
 var (
 	file_shared_proto_analytics_analytics_proto_rawDescOnce sync.Once
@@ -613,7 +770,7 @@ func file_shared_proto_analytics_analytics_proto_rawDescGZIP() []byte {
 	return file_shared_proto_analytics_analytics_proto_rawDescData
 }
 
-var file_shared_proto_analytics_analytics_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_shared_proto_analytics_analytics_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_shared_proto_analytics_analytics_proto_goTypes = []any{
 	(*CountryCount)(nil),             // 0: analytics.CountryCount
 	(*BrowserCount)(nil),             // 1: analytics.BrowserCount
@@ -624,22 +781,26 @@ var file_shared_proto_analytics_analytics_proto_goTypes = []any{
 	(*GetLinkAnalyticsResponse)(nil), // 6: analytics.GetLinkAnalyticsResponse
 	(*GetSummaryRequest)(nil),        // 7: analytics.GetSummaryRequest
 	(*GetSummaryResponse)(nil),       // 8: analytics.GetSummaryResponse
+	(*SubscribeRealtimeRequest)(nil), // 9: analytics.SubscribeRealtimeRequest
+	(*ClickEvent)(nil),               // 10: analytics.ClickEvent
 }
 var file_shared_proto_analytics_analytics_proto_depIdxs = []int32{
-	0, // 0: analytics.GetLinkAnalyticsResponse.top_countries:type_name -> analytics.CountryCount
-	1, // 1: analytics.GetLinkAnalyticsResponse.top_browsers:type_name -> analytics.BrowserCount
-	2, // 2: analytics.GetLinkAnalyticsResponse.top_devices:type_name -> analytics.DeviceCount
-	3, // 3: analytics.GetLinkAnalyticsResponse.time_series:type_name -> analytics.DailyClickCount
-	4, // 4: analytics.GetSummaryResponse.top_links:type_name -> analytics.TopLink
-	5, // 5: analytics.AnalyticsService.GetLinkAnalytics:input_type -> analytics.GetLinkAnalyticsRequest
-	7, // 6: analytics.AnalyticsService.GetSummary:input_type -> analytics.GetSummaryRequest
-	6, // 7: analytics.AnalyticsService.GetLinkAnalytics:output_type -> analytics.GetLinkAnalyticsResponse
-	8, // 8: analytics.AnalyticsService.GetSummary:output_type -> analytics.GetSummaryResponse
-	7, // [7:9] is the sub-list for method output_type
-	5, // [5:7] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	0,  // 0: analytics.GetLinkAnalyticsResponse.top_countries:type_name -> analytics.CountryCount
+	1,  // 1: analytics.GetLinkAnalyticsResponse.top_browsers:type_name -> analytics.BrowserCount
+	2,  // 2: analytics.GetLinkAnalyticsResponse.top_devices:type_name -> analytics.DeviceCount
+	3,  // 3: analytics.GetLinkAnalyticsResponse.time_series:type_name -> analytics.DailyClickCount
+	4,  // 4: analytics.GetSummaryResponse.top_links:type_name -> analytics.TopLink
+	5,  // 5: analytics.AnalyticsService.GetLinkAnalytics:input_type -> analytics.GetLinkAnalyticsRequest
+	7,  // 6: analytics.AnalyticsService.GetSummary:input_type -> analytics.GetSummaryRequest
+	9,  // 7: analytics.AnalyticsService.SubscribeRealtime:input_type -> analytics.SubscribeRealtimeRequest
+	6,  // 8: analytics.AnalyticsService.GetLinkAnalytics:output_type -> analytics.GetLinkAnalyticsResponse
+	8,  // 9: analytics.AnalyticsService.GetSummary:output_type -> analytics.GetSummaryResponse
+	10, // 10: analytics.AnalyticsService.SubscribeRealtime:output_type -> analytics.ClickEvent
+	8,  // [8:11] is the sub-list for method output_type
+	5,  // [5:8] is the sub-list for method input_type
+	5,  // [5:5] is the sub-list for extension type_name
+	5,  // [5:5] is the sub-list for extension extendee
+	0,  // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_shared_proto_analytics_analytics_proto_init() }
@@ -653,7 +814,7 @@ func file_shared_proto_analytics_analytics_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shared_proto_analytics_analytics_proto_rawDesc), len(file_shared_proto_analytics_analytics_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
