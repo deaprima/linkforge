@@ -1,0 +1,91 @@
+syntax = "proto3";
+
+package link;
+
+option go_package = "github.com/deaprima/linkforge/services/shared/proto/link";
+
+import "google/protobuf/timestamp.proto";
+
+// Messages
+
+message Link {
+  string id           = 1;
+  string user_id      = 2;
+  string original_url = 3;
+  string alias        = 4;
+  string short_url    = 5;
+  int64  click_count  = 6;
+  google.protobuf.Timestamp expired_at  = 7; // nullable
+  google.protobuf.Timestamp created_at  = 8;
+  google.protobuf.Timestamp updated_at  = 9;
+}
+
+// Request & Response
+
+message CreateLinkRequest {
+  string user_id      = 1;
+  string original_url = 2;
+  string alias        = 3; // opsional, kosong = auto-generate
+  google.protobuf.Timestamp expired_at = 4; // opsional
+}
+message CreateLinkResponse {
+  Link link = 1;
+}
+
+message GetLinkRequest {
+  string link_id = 1;
+  string user_id = 2; // untuk validasi ownership
+}
+message GetLinkResponse {
+  Link link = 1;
+}
+
+message ListLinksRequest {
+  string user_id = 1;
+  int32  page    = 2;
+  int32  limit   = 3;
+}
+message ListLinksResponse {
+  repeated Link links = 1;
+  int32 total         = 2;
+}
+
+message UpdateLinkRequest {
+  string link_id      = 1;
+  string user_id      = 2;
+  string original_url = 3; // opsional
+  string alias        = 4; // opsional
+  google.protobuf.Timestamp expired_at = 5; // opsional, null = hapus expired
+}
+message UpdateLinkResponse {
+  Link link = 1;
+}
+
+message DeleteLinkRequest {
+  string link_id = 1;
+  string user_id = 2; // untuk validasi ownership
+}
+message DeleteLinkResponse {
+  bool success = 1;
+}
+
+// ResolveAlias digunakan Gateway untuk mendapatkan URL tujuan saat user mengakses /:alias (public redirect).
+message ResolveAliasRequest {
+  string alias = 1;
+}
+message ResolveAliasResponse {
+  string link_id      = 1;
+  string original_url = 2;
+  bool   is_expired   = 3;
+}
+
+// Service Definition
+
+service LinkService {
+  rpc CreateLink(CreateLinkRequest)       returns (CreateLinkResponse);
+  rpc GetLink(GetLinkRequest)             returns (GetLinkResponse);
+  rpc ListLinks(ListLinksRequest)         returns (ListLinksResponse);
+  rpc UpdateLink(UpdateLinkRequest)       returns (UpdateLinkResponse);
+  rpc DeleteLink(DeleteLinkRequest)       returns (DeleteLinkResponse);
+  rpc ResolveAlias(ResolveAliasRequest)   returns (ResolveAliasResponse);
+}

@@ -1,0 +1,67 @@
+syntax = "proto3";
+
+package analytics;
+
+option go_package = "github.com/deaprima/linkforge/services/shared/proto/analytics";
+
+// Messages
+
+message CountryCount {
+  string country = 1;
+  int64  count   = 2;
+}
+
+message BrowserCount {
+  string browser = 1;
+  int64  count   = 2;
+}
+
+message DeviceCount {
+  string device = 1;
+  int64  count  = 2;
+}
+
+message DailyClickCount {
+  string date  = 1; // format: "2026-07-08"
+  int64  clicks = 2;
+}
+
+message TopLink {
+  string alias  = 1;
+  string link_id = 2;
+  int64  clicks = 3;
+}
+
+// Request & Response
+
+message GetLinkAnalyticsRequest {
+  string link_id  = 1;
+  string user_id  = 2;
+  string from     = 3; // "2026-07-01"
+  string to       = 4; // "2026-07-31"
+}
+message GetLinkAnalyticsResponse {
+  string link_id                      = 1;
+  int64  total_clicks                 = 2;
+  int64  unique_clicks                = 3;
+  repeated CountryCount top_countries = 4;
+  repeated BrowserCount top_browsers  = 5;
+  repeated DeviceCount  top_devices   = 6;
+  repeated DailyClickCount time_series = 7;
+}
+
+message GetSummaryRequest {
+  string user_id = 1;
+}
+message GetSummaryResponse {
+  int64  total_links  = 1;
+  int64  total_clicks = 2;
+  repeated TopLink top_links = 3;
+}
+
+// Service Definition
+
+service AnalyticsService {
+  rpc GetLinkAnalytics(GetLinkAnalyticsRequest) returns (GetLinkAnalyticsResponse);
+  rpc GetSummary(GetSummaryRequest)             returns (GetSummaryResponse);
+}
