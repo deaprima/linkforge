@@ -1,0 +1,32 @@
+docs/
+
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/bin/
+/dist/
+
+# Test & coverage
+*.test
+*.out
+coverage.html
+coverage.txt
+
+# Docker
+docker-compose.local.yml
+
+# IDE & Editor
+.vscode/
+
+# Logs
+*.log
+logs/
