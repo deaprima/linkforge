@@ -112,6 +112,9 @@ components:
         click_count:
           type: integer
           example: 42
+        has_password:
+          type: boolean
+          example: false
         expired_at:
           type: string
           format: date-time
@@ -549,6 +552,10 @@ paths:
                   format: date-time
                   nullable: true
                   description: Opsional. Batas waktu link aktif.
+                password:
+                  type: string
+                  description: Opsional. Password untuk memproteksi link (v1.5).
+                  example: "secret123"
       responses:
         '201':
           description: Link berhasil dibuat.
@@ -743,6 +750,54 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /links/{id}/qr:
+    get:
+      tags: [Links]
+      summary: Generate QR Code untuk short link (v1.5)
+      operationId: getLinkQr
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: size
+          in: query
+          description: Ukuran QR Code dalam piksel.
+          schema:
+            type: integer
+            default: 256
+        - name: format
+          in: query
+          description: Format gambar QR Code.
+          schema:
+            type: string
+            enum: [png, svg]
+            default: png
+      responses:
+        '200':
+          description: QR Code image binary.
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/svg+xml:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   # Analytics
   /analytics/summary:
     get:
@@ -880,6 +935,137 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+
+  /analytics/realtime:
+    get:
+      tags: [Analytics]
+      summary: WebSocket stream untuk event klik realtime (v1.5)
+      description: |
+        Membuka koneksi WebSocket untuk mendengarkan event klik secara realtime.
+        Token autentikasi harus dikirimkan via query parameter `token`.
+      operationId: getRealtimeAnalytics
+      parameters:
+        - name: token
+          in: query
+          required: true
+          description: Access token (JWT) untuk autentikasi.
+          schema:
+            type: string
+      responses:
+        '101':
+          description: Koneksi berhasil diupgrade ke WebSocket.
+
+  # Redirects (Served at Root)
+  /{alias}:
+    get:
+      servers:
+        - url: https://linkforge.deaprima.my.id
+          description: Production Root
+        - url: http://localhost:8080
+          description: Local Development Root
+      summary: Redirect ke URL asli berdasarkan alias
+      description: Melakukan redirect temporary (302) ke URL asli atau meminta password jika dilindungi.
+      operationId: resolveRedirect
+      parameters:
+        - name: alias
+          in: path
+          required: true
+          schema:
+            type: string
+            example: my-alias
+      responses:
+        '302':
+          description: Redirect ke URL tujuan.
+          headers:
+            Location:
+              schema:
+                type: string
+                example: https://example.com/very/long/url
+        '200':
+          description: Link dilindungi password. Membutuhkan verifikasi.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error:
+                  code: PASSWORD_REQUIRED
+                  message: This link is password protected.
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '410':
+          description: Link sudah kadaluarsa (expired).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error:
+                  code: LINK_EXPIRED
+                  message: This link has expired.
+
+  /{alias}/verify:
+    post:
+      servers:
+        - url: https://linkforge.deaprima.my.id
+          description: Production Root
+        - url: http://localhost:8080
+          description: Local Development Root
+      summary: Verifikasi password untuk link yang dilindungi (v1.5)
+      operationId: verifyLinkPassword
+      parameters:
+        - name: alias
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password:
+                  type: string
+                  example: "secret123"
+      responses:
+        '200':
+          description: Verifikasi berhasil. Mengembalikan URL tujuan.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          redirect_url:
+                            type: string
+                            format: uri
+                            example: https://example.com/very/long/url
+        '401':
+          description: Password salah.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error:
+                  code: UNAUTHORIZED
+                  message: Incorrect password.
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '410':
+          description: Link sudah kadaluarsa (expired).
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
 
 # Tags (untuk pengelompokan di Swagger UI)
 tags:
