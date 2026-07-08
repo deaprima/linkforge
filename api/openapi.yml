@@ -1,0 +1,895 @@
+openapi: 3.0.3
+
+info:
+  title: LinkForge API
+  description: |
+    API publik untuk LinkForge — Production-grade URL Shortener.
+    Semua request diproses melalui Gateway Service.
+    
+    ## Autentikasi
+    Tersedia dua metode autentikasi:
+    - **Bearer Token (JWT)**: Untuk akses via browser/FE. Token disimpan di HttpOnly Cookie setelah login/OAuth.
+    - **API Key**: Untuk akses programatik (CLI, bot, integrasi). Kirim via header `X-API-Key`.
+  version: 1.0.0
+  contact:
+    name: Dea Prima
+    url: https://github.com/deaprima/linkforge
+
+servers:
+  - url: https://linkforge.deaprima.my.id/api/v1
+    description: Production
+  - url: http://localhost:8080/api/v1
+    description: Local Development
+
+# Security Schemes
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    CookieAuth:
+      type: apiKey
+      in: cookie
+      name: access_token
+
+  # Reusable Schemas
+  schemas:
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: LINK_NOT_FOUND
+            message:
+              type: string
+              example: The requested short link does not exist.
+
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 100
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Dea Prima
+        email:
+          type: string
+          format: email
+        created_at:
+          type: string
+          format: date-time
+
+    Link:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        original_url:
+          type: string
+          format: uri
+          example: https://example.com/very/long/url
+        alias:
+          type: string
+          example: my-alias
+        short_url:
+          type: string
+          example: https://linkforge.deaprima.my.id/my-alias
+        click_count:
+          type: integer
+          example: 42
+        expired_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    ApiKey:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: My CLI Tool
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+  # Reusable Responses
+  responses:
+    Unauthorized:
+      description: Token tidak ada atau tidak valid.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: UNAUTHORIZED
+              message: Missing or invalid authentication token.
+
+    Forbidden:
+      description: Akses ditolak — bukan pemilik resource.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: FORBIDDEN
+              message: You do not have access to this resource.
+
+    NotFound:
+      description: Resource tidak ditemukan.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: LINK_NOT_FOUND
+              message: The requested resource does not exist.
+
+    RateLimitExceeded:
+      description: Terlalu banyak request.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: RATE_LIMIT_EXCEEDED
+              message: Too many requests. Please slow down.
+
+    ServiceUnavailable:
+      description: Backend service tidak tersedia (circuit breaker open).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: SERVICE_UNAVAILABLE
+              message: The service is temporarily unavailable. Please try again later.
+
+
+# Paths
+paths:
+
+  # Auth
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register akun baru
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name:
+                  type: string
+                  example: Dea Prima
+                email:
+                  type: string
+                  format: email
+                  example: dea@example.com
+                password:
+                  type: string
+                  minLength: 8
+                  example: "strongpassword"
+      responses:
+        '201':
+          description: Registrasi berhasil.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          user:
+                            $ref: '#/components/schemas/User'
+                          access_token:
+                            type: string
+                          refresh_token:
+                            type: string
+        '400':
+          description: Validasi gagal.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Email sudah terdaftar.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error:
+                  code: EMAIL_ALREADY_EXISTS
+                  message: This email is already registered.
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login dengan email dan password
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login berhasil.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          user:
+                            $ref: '#/components/schemas/User'
+                          access_token:
+                            type: string
+                          refresh_token:
+                            type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        '200':
+          description: Token berhasil diperbarui.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          access_token:
+                            type: string
+                          refresh_token:
+                            type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout dan cabut refresh token
+      operationId: logoutUser
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        '204':
+          description: Logout berhasil.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Profil user yang sedang login
+      operationId: getMe
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      responses:
+        '200':
+          description: Data profil user.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/oauth/google:
+    get:
+      tags: [Auth - OAuth]
+      summary: Mulai alur Google OAuth
+      operationId: oauthGoogle
+      description: Redirect user ke halaman consent Google. Tidak memerlukan body.
+      responses:
+        '302':
+          description: Redirect ke Google OAuth page.
+
+  /auth/oauth/google/callback:
+    get:
+      tags: [Auth - OAuth]
+      summary: Callback dari Google setelah user memberikan izin
+      operationId: oauthGoogleCallback
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '302':
+          description: |
+            Redirect ke FE dashboard. Token dikirim via HttpOnly Cookie:
+            - `access_token`: HttpOnly; Secure; SameSite=Lax; Path=/
+            - `refresh_token`: HttpOnly; Secure; SameSite=Lax; Path=/api/v1/auth/refresh
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: "access_token=eyJ...; HttpOnly; Secure; SameSite=Lax; Path=/"
+        '400':
+          description: OAuth callback tidak valid.
+
+  /auth/api-keys:
+    post:
+      tags: [Auth - API Keys]
+      summary: Generate API Key baru
+      operationId: createApiKey
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  example: My CLI Tool
+      responses:
+        '201':
+          description: API Key berhasil dibuat. Key hanya ditampilkan sekali.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: '#/components/schemas/ApiKey'
+                          - type: object
+                            properties:
+                              key:
+                                type: string
+                                example: "lf_sk_xxxxx"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    get:
+      tags: [Auth - API Keys]
+      summary: Daftar API Key milik user
+      operationId: listApiKeys
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      responses:
+        '200':
+          description: Daftar API Key.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ApiKey'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/api-keys/{id}:
+    delete:
+      tags: [Auth - API Keys]
+      summary: Hapus/cabut API Key
+      operationId: deleteApiKey
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: API Key berhasil dihapus.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # Links
+  /links:
+    post:
+      tags: [Links]
+      summary: Buat short link baru
+      operationId: createLink
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [original_url]
+              properties:
+                original_url:
+                  type: string
+                  format: uri
+                  example: https://example.com/very/long/url
+                alias:
+                  type: string
+                  example: my-alias
+                  description: Opsional. Jika tidak diisi, sistem generate otomatis.
+                expired_at:
+                  type: string
+                  format: date-time
+                  nullable: true
+                  description: Opsional. Batas waktu link aktif.
+      responses:
+        '201':
+          description: Link berhasil dibuat.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Link'
+        '400':
+          description: URL tidak valid atau terdeteksi berbahaya.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                malicious:
+                  value:
+                    success: false
+                    error:
+                      code: MALICIOUS_URL
+                      message: This URL has been flagged as potentially harmful.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Alias sudah digunakan.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error:
+                  code: ALIAS_ALREADY_TAKEN
+                  message: This alias is already in use.
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+    get:
+      tags: [Links]
+      summary: Daftar link milik user (dengan pagination)
+      operationId: listLinks
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: Daftar link.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Link'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /links/{id}:
+    get:
+      tags: [Links]
+      summary: Detail sebuah link
+      operationId: getLink
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Detail link.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Link'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Links]
+      summary: Update sebuah link
+      operationId: updateLink
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                original_url:
+                  type: string
+                  format: uri
+                alias:
+                  type: string
+                expired_at:
+                  type: string
+                  format: date-time
+                  nullable: true
+      responses:
+        '200':
+          description: Link berhasil diupdate.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Link'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Alias baru sudah dipakai.
+
+    delete:
+      tags: [Links]
+      summary: Hapus sebuah link
+      operationId: deleteLink
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Link berhasil dihapus.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # Analytics
+  /analytics/summary:
+    get:
+      tags: [Analytics]
+      summary: Ringkasan analytics keseluruhan akun user
+      operationId: getAnalyticsSummary
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Ringkasan analytics.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          total_links:
+                            type: integer
+                            example: 10
+                          total_clicks:
+                            type: integer
+                            example: 1280
+                          top_links:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                alias:
+                                  type: string
+                                clicks:
+                                  type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /analytics/links/{id}:
+    get:
+      tags: [Analytics]
+      summary: Analytics detail untuk sebuah link
+      operationId: getLinkAnalytics
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          description: Tanggal awal filter (ISO 8601).
+          schema:
+            type: string
+            format: date
+            example: "2026-07-01"
+        - name: to
+          in: query
+          description: Tanggal akhir filter (ISO 8601).
+          schema:
+            type: string
+            format: date
+            example: "2026-07-31"
+      responses:
+        '200':
+          description: Analytics detail link.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          link_id:
+                            type: string
+                            format: uuid
+                          total_clicks:
+                            type: integer
+                            example: 254
+                          unique_clicks:
+                            type: integer
+                            example: 180
+                          top_countries:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                country:
+                                  type: string
+                                  example: ID
+                                count:
+                                  type: integer
+                          top_browsers:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                browser:
+                                  type: string
+                                count:
+                                  type: integer
+                          top_devices:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                device:
+                                  type: string
+                                count:
+                                  type: integer
+                          time_series:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                date:
+                                  type: string
+                                  format: date
+                                clicks:
+                                  type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+# Tags (untuk pengelompokan di Swagger UI)
+tags:
+  - name: Auth
+    description: Register, login, logout, dan token management.
+  - name: Auth - OAuth
+    description: Alur OAuth menggunakan Google.
+  - name: Auth - API Keys
+    description: Generate dan kelola API Key untuk akses programatik.
+  - name: Links
+    description: CRUD untuk manajemen short link.
+  - name: Analytics
+    description: Data dan statistik klik per link maupun keseluruhan akun.

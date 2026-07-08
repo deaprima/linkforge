@@ -127,3 +127,24 @@ HttpOnly Cookie secara otomatis.
 2. **Panjang deskripsi**: maksimal 72 karakter.
 3. **Bahasa**: gunakan **Bahasa Inggris** untuk konsistensi dan supaya bisa dibaca secara internasional (ini portofolio publik!).
 4. **Satu commit = satu tujuan**: jangan campur refactor dengan fitur baru dalam satu commit.
+
+
+## Branch Strategy
+Project ini menggunakan **Git Flow**:
+| Branch | Fungsi |
+|---|---|
+| `main` | Production only. Hanya menerima merge dari `develop`. |
+| `develop` | Integration branch. Semua feature branch merge ke sini. |
+| `feat/*` | Fitur baru |
+| `fix/*` | Bug fix |
+| `docs/*` | Perubahan dokumentasi |
+| `chore/*` | Konfigurasi, setup, dependency |
+| `ci/*` | CI/CD workflow |
+| `refactor/*` | Refactoring tanpa perubahan perilaku |
+
+### Flow Kerja
+1. Checkout dari `develop` → buat branch baru
+2. Kerjakan perubahan → commit dengan Conventional Commits
+3. Push branch → buat Pull Request ke `develop`
+4. Merge ke `develop` setelah review
+5. `develop` → `main` hanya saat siap release/deploy

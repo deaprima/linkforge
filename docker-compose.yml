@@ -1,6 +1,8 @@
 version: '3.8'
 
 services:
+
+  # Postgres
   postgres:
     image: postgres:16-alpine
     container_name: linkforge-postgres
@@ -13,6 +15,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  # Redis
   redis:
     image: redis:7-alpine
     container_name: linkforge-redis
@@ -21,7 +24,7 @@ services:
     volumes:
       - redisdata:/data
 
-  # Kafka (KRaft mode, tanpa Zookeeper)
+  # Kafka - KRaft mode
   kafka:
     image: bitnami/kafka:3.5
     container_name: linkforge-kafka
@@ -39,6 +42,19 @@ services:
       - ALLOW_PLAINTEXT_LISTENER=yes
     volumes:
       - kafkadata:/bitnami/kafka
+  
+  # Swagger UI — API Documentation
+  swagger-ui:
+    image: swaggerapi/swagger-ui
+    container_name: linkforge-swagger
+    ports:
+      - "8090:8080"
+    volumes:
+      - ./api/openapi.yml:/tmp/openapi.yml   
+    environment:
+      SWAGGER_JSON: /tmp/openapi.yml     
+    restart: unless-stopped
+
 
 volumes:
   pgdata:
