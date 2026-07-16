@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"time"
 	"log"
@@ -15,9 +16,19 @@ type Config struct {
 }
 
 func LoadConfig() *Config {
+
+	// Merakit DSN secara dinamis khusus untuk Auth Service (search_path=auth)
+	dbDSN := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable&search_path=auth",
+		getEnv("DB_USER"),
+		getEnv("DB_PASSWORD"),
+		getEnv("DB_HOST"),
+		getEnv("DB_PORT"),
+		getEnv("DB_NAME"),
+	)
+
 	return &Config{
 		GRPCPort: getEnv("AUTH_PORT"),
-		DatabaseDSN: getEnv("DB_DSN"),
+		DatabaseDSN: dbDSN,
 		JWTSecret: getEnv("JWT_SECRET"),
 		JWTAccessDur: getEnvDuration("JWT_ACCESS_DURATION"),
 		JWTRefreshDur: getEnvDuration("JWT_REFRESH_DURATION"),
