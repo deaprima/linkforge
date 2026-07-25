@@ -2,9 +2,11 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/deaprima/linkforge/services/auth/internal/entity"
@@ -35,11 +37,18 @@ type AuthService interface {
 	ValidateToken(ctx context.Context, tokenStr string) (*UserClaims, error)
 	RefreshToken(ctx context.Context, refreshToken string, ip string, userAgent string) (*TokenResult, error)
 	Logout(ctx context.Context, refreshToken string) error
+	
+	// API Key Management
+	CreateApiKey(ctx context.Context, userID uuid.UUID, name string) (*entity.ApiKey, string, error)
+	ListApiKeys(ctx context.Context, userID uuid.UUID) ([]entity.ApiKey, error)
+	DeleteApiKey(ctx context.Context, userID uuid.UUID, keyID uuid.UUID) error
+	ValidateApiKey(ctx context.Context, rawKey string) (*entity.ApiKey, error)
 }
 
 type authService struct {
 	userRepo     repository.UserRepository
 	tokenRepo    repository.TokenRepository
+	keyRepo		 repository.ApiKeyRepository
 	tokenManager TokenManager
 	refreshDur   time.Duration
 }
@@ -47,12 +56,14 @@ type authService struct {
 func NewAuthService(
 	userRepo repository.UserRepository,
 	tokenRepo repository.TokenRepository,
+	keyRepo repository.ApiKeyRepository,
 	tokenManager TokenManager,
 	refreshDur time.Duration,
 ) AuthService {
 	return &authService{
 		userRepo:     userRepo,
 		tokenRepo:    tokenRepo,
+		keyRepo: 	  keyRepo,
 		tokenManager: tokenManager,
 		refreshDur:   refreshDur,
 	}
@@ -222,4 +233,70 @@ func (s *authService) Logout(ctx context.Context, refreshToken string) error {
 	return s.tokenRepo.Revoke(ctx, tokenEntity.ID)
 }
 
+// generateRawApiKey menghasilkan random key 32 byte dengan prefix "lf_sk_".
+func generateRawApiKey() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("failed to generate api key: %w", err)
+	}
+	return "lf_sk_" + hex.EncodeToString(b), nil
+}
 
+func (s *authService) CreateApiKey(ctx context.Context, userID uuid.UUID, name string) (*entity.ApiKey, string, error) {
+	if name == "" {
+		return nil, "", errors.New("api key name cannot be empty")
+	}
+
+	rawKey, err := generateRawApiKey()
+	if err != nil {
+		return nil, "", err
+	}
+
+	h := sha256.Sum256([]byte(rawKey))
+	keyHash := hex.EncodeToString(h[:])
+
+	// Simpan 12 char pertama sebagai prefix untuk ditampilkan di UI
+	keyPrefix := rawKey[:12]
+
+	key := &entity.ApiKey{
+		UserID:    userID,
+		Name:      name,
+		KeyHash:   keyHash,
+		KeyPrefix: keyPrefix,
+	}
+
+	if err := s.keyRepo.Create(ctx, key); err != nil {
+		return nil, "", fmt.Errorf("failed to save api key: %w", err)
+	}
+
+	// rawKey HANYA dikembalikan di sini, tidak pernah disimpan
+	return key, rawKey, nil
+}
+
+func (s *authService) ListApiKeys(ctx context.Context, userID uuid.UUID) ([]entity.ApiKey, error) {
+	return s.keyRepo.ListByUserID(ctx, userID)
+}
+
+func (s *authService) DeleteApiKey(ctx context.Context, userID uuid.UUID, keyID uuid.UUID) error {
+	return s.keyRepo.Revoke(ctx, keyID, userID)
+}
+
+func (s *authService) ValidateApiKey(ctx context.Context, rawKey string) (*entity.ApiKey, error) {
+	h := sha256.Sum256([]byte(rawKey))
+	keyHash := hex.EncodeToString(h[:])
+
+	key, err := s.keyRepo.GetByHash(ctx, keyHash)
+	if err != nil {
+		return nil, fmt.Errorf("failed to validate api key: %w", err)
+	}
+	if key == nil {
+		return nil, errors.New("invalid or revoked api key")
+	}
+
+	// Update last_used_at secara fire-and-forget, tidak block response
+	go func() {
+		_ = s.keyRepo.UpdateLastUsed(context.Background(), key.ID)
+	}()
+
+	return key, nil
+}

@@ -3,11 +3,14 @@ package grpc
 import (
 	"context"
 
+	"github.com/deaprima/linkforge/services/auth/internal/entity"
 	"github.com/deaprima/linkforge/services/auth/internal/service"
 	pb "github.com/deaprima/linkforge/services/shared/proto/auth"
+	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type AuthHandler struct {
@@ -128,4 +131,71 @@ func (h *AuthHandler) Logout(ctx context.Context, req *pb.LogoutRequest) (*pb.Lo
 	return &pb.LogoutResponse{
 		Success: true,
 	}, nil
+}
+
+// Helper: konversi entity.ApiKey → pb.ApiKey
+func toProtoApiKey(k *entity.ApiKey) *pb.ApiKey {
+    proto := &pb.ApiKey{
+        Id:        k.ID.String(),
+        Name:      k.Name,
+        CreatedAt: timestamppb.New(k.CreatedAt),
+    }
+    if k.LastUsedAt != nil {
+        proto.LastUsedAt = timestamppb.New(*k.LastUsedAt)
+    }
+    return proto
+}
+func (h *AuthHandler) CreateApiKey(ctx context.Context, req *pb.CreateApiKeyRequest) (*pb.CreateApiKeyResponse, error) {
+    userID, err := uuid.Parse(req.GetUserId())
+    if err != nil {
+        return nil, status.Error(codes.InvalidArgument, "invalid user_id format")
+    }
+    key, rawKey, err := h.authService.CreateApiKey(ctx, userID, req.GetName())
+    if err != nil {
+        return nil, status.Errorf(codes.Internal, "failed to create api key: %v", err)
+    }
+    return &pb.CreateApiKeyResponse{
+        ApiKey: toProtoApiKey(key),
+        RawKey: rawKey, // dikirim SEKALI ke client
+    }, nil
+}
+func (h *AuthHandler) ListApiKeys(ctx context.Context, req *pb.ListApiKeysRequest) (*pb.ListApiKeysResponse, error) {
+    userID, err := uuid.Parse(req.GetUserId())
+    if err != nil {
+        return nil, status.Error(codes.InvalidArgument, "invalid user_id format")
+    }
+    keys, err := h.authService.ListApiKeys(ctx, userID)
+    if err != nil {
+        return nil, status.Errorf(codes.Internal, "failed to list api keys: %v", err)
+    }
+    var protoKeys []*pb.ApiKey
+    for i := range keys {
+        protoKeys = append(protoKeys, toProtoApiKey(&keys[i]))
+    }
+    return &pb.ListApiKeysResponse{ApiKeys: protoKeys}, nil
+}
+func (h *AuthHandler) DeleteApiKey(ctx context.Context, req *pb.DeleteApiKeyRequest) (*pb.DeleteApiKeyResponse, error) {
+    userID, err := uuid.Parse(req.GetUserId())
+    if err != nil {
+        return nil, status.Error(codes.InvalidArgument, "invalid user_id format")
+    }
+    keyID, err := uuid.Parse(req.GetApiKeyId())
+    if err != nil {
+        return nil, status.Error(codes.InvalidArgument, "invalid api_key_id format")
+    }
+    if err := h.authService.DeleteApiKey(ctx, userID, keyID); err != nil {
+        return nil, status.Errorf(codes.Internal, "failed to delete api key: %v", err)
+    }
+    return &pb.DeleteApiKeyResponse{Success: true}, nil
+}
+func (h *AuthHandler) ValidateApiKey(ctx context.Context, req *pb.ValidateApiKeyRequest) (*pb.ValidateApiKeyResponse, error) {
+    key, err := h.authService.ValidateApiKey(ctx, req.GetApiKey())
+    if err != nil {
+        // Jika invalid/revoked, kembalikan is_valid=false, bukan error gRPC
+        return &pb.ValidateApiKeyResponse{IsValid: false}, nil
+    }
+    return &pb.ValidateApiKeyResponse{
+        IsValid: true,
+        UserId:  key.UserID.String(),
+    }, nil
 }
