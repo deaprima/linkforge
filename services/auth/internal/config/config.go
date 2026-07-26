@@ -13,6 +13,7 @@ type Config struct {
 	JWTSecret 		string
 	JWTAccessDur	time.Duration
 	JWTRefreshDur	time.Duration
+	GoogleClientID	string
 }
 
 func LoadConfig() *Config {
@@ -32,6 +33,7 @@ func LoadConfig() *Config {
 		JWTSecret: getEnv("JWT_SECRET"),
 		JWTAccessDur: getEnvDuration("JWT_ACCESS_DURATION"),
 		JWTRefreshDur: getEnvDuration("JWT_REFRESH_DURATION"),
+		GoogleClientID: getEnv("GOOGLE_CLIENT_ID"),
 	}
 }
 

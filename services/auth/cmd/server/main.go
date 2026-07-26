@@ -49,9 +49,10 @@ func main(){
 	userRepo := repository.NewUserRepository(db)
 	tokenRepo := repository.NewTokenRepository(db)
 	keyRepo := repository.NewApiKeyRepository(db)
+	oauthRepo := repository.NewOAuthRepository(db)
 
 	tokenManager := service.NewTokenManager(cfg.JWTSecret, cfg.JWTAccessDur)
-	authService := service.NewAuthService(userRepo, tokenRepo, keyRepo, tokenManager, cfg.JWTAccessDur)
+	authService := service.NewAuthService(userRepo, tokenRepo, keyRepo, oauthRepo, cfg.GoogleClientID, tokenManager, cfg.JWTAccessDur)
 
 	authHandler := grpcDelivery.NewAuthHandler(authService)
 

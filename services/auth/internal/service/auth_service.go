@@ -13,6 +13,7 @@ import (
 	"github.com/deaprima/linkforge/services/auth/internal/repository"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
+	"google.golang.org/api/idtoken"
 )
 
 type RegisterInput struct {
@@ -37,18 +38,24 @@ type AuthService interface {
 	ValidateToken(ctx context.Context, tokenStr string) (*UserClaims, error)
 	RefreshToken(ctx context.Context, refreshToken string, ip string, userAgent string) (*TokenResult, error)
 	Logout(ctx context.Context, refreshToken string) error
-	
+	GetUser(ctx context.Context, userID uuid.UUID) (*entity.User, error)
+
 	// API Key Management
 	CreateApiKey(ctx context.Context, userID uuid.UUID, name string) (*entity.ApiKey, string, error)
 	ListApiKeys(ctx context.Context, userID uuid.UUID) ([]entity.ApiKey, error)
 	DeleteApiKey(ctx context.Context, userID uuid.UUID, keyID uuid.UUID) error
 	ValidateApiKey(ctx context.Context, rawKey string) (*entity.ApiKey, error)
+
+	// Google OAuth
+    GoogleAuth(ctx context.Context, idToken string) (*entity.User, *TokenResult, error)
 }
 
 type authService struct {
 	userRepo     repository.UserRepository
 	tokenRepo    repository.TokenRepository
 	keyRepo		 repository.ApiKeyRepository
+	oauthRepo    repository.OAuthRepository
+	googleClientID string
 	tokenManager TokenManager
 	refreshDur   time.Duration
 }
@@ -57,6 +64,8 @@ func NewAuthService(
 	userRepo repository.UserRepository,
 	tokenRepo repository.TokenRepository,
 	keyRepo repository.ApiKeyRepository,
+	oauthRepo repository.OAuthRepository,
+	googleClientID string,
 	tokenManager TokenManager,
 	refreshDur time.Duration,
 ) AuthService {
@@ -64,6 +73,8 @@ func NewAuthService(
 		userRepo:     userRepo,
 		tokenRepo:    tokenRepo,
 		keyRepo: 	  keyRepo,
+		oauthRepo:    oauthRepo,	
+		googleClientID: googleClientID,
 		tokenManager: tokenManager,
 		refreshDur:   refreshDur,
 	}
@@ -233,6 +244,17 @@ func (s *authService) Logout(ctx context.Context, refreshToken string) error {
 	return s.tokenRepo.Revoke(ctx, tokenEntity.ID)
 }
 
+func (s *authService) GetUser(ctx context.Context, userID uuid.UUID) (*entity.User, error) {
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+	if user == nil {
+		return nil, errors.New("user not found")
+	}
+	return user, nil
+}
+
 // generateRawApiKey menghasilkan random key 32 byte dengan prefix "lf_sk_".
 func generateRawApiKey() (string, error) {
 	b := make([]byte, 32)
@@ -299,4 +321,75 @@ func (s *authService) ValidateApiKey(ctx context.Context, rawKey string) (*entit
 	}()
 
 	return key, nil
+}
+
+// GoogleAuth memverifikasi Google ID Token, lalu login/register user secara otomatis.
+func (s *authService) GoogleAuth(ctx context.Context, rawIDToken string) (*entity.User, *TokenResult, error) {
+    // 1. Verifikasi ID Token ke Google
+    payload, err := idtoken.Validate(ctx, rawIDToken, s.googleClientID) 
+    if err != nil {
+        return nil, nil, fmt.Errorf("invalid google id token: %w", err)
+    }
+
+    // 2. Ekstrak info user dari claims Google
+    providerUserID := payload.Subject // Google UID (sub)
+    email, _ := payload.Claims["email"].(string)
+    name, _ := payload.Claims["name"].(string)
+
+    if email == "" {
+        return nil, nil, errors.New("google account does not provide email")
+    }
+
+    // 3. Cek apakah oauth_account sudah terdaftar
+    oauthAccount, err := s.oauthRepo.GetByProviderAndUserID(ctx, "google", providerUserID)
+    if err != nil {
+        return nil, nil, err
+    }
+
+    var user *entity.User
+
+    if oauthAccount != nil {
+        // 3a. Sudah ada → langsung ambil user
+        user, err = s.userRepo.GetByID(ctx, oauthAccount.UserID)
+        if err != nil || user == nil {
+            return nil, nil, errors.New("linked user not found")
+        }
+    } else {
+        // 3b. Belum ada → cek apakah email sudah terdaftar (account linking by email)
+        user, err = s.userRepo.GetByEmail(ctx, email)
+        if err != nil {
+            return nil, nil, err
+        }
+
+        if user == nil {
+            // Buat user baru (OAuth-only, tanpa password)
+            user = &entity.User{
+                Email: email,
+                Name:  name,
+                // PasswordHash tetap nil — user OAuth-only
+            }
+            if err := s.userRepo.Create(ctx, user); err != nil {
+                return nil, nil, fmt.Errorf("failed to create user: %w", err)
+            }
+        }
+
+        // Buat oauth_account baru (link ke user yang ada atau baru dibuat)
+        newOAuthAccount := &entity.OAuthAccount{
+            UserID:         user.ID,
+            Provider:       "google",
+            ProviderUserID: providerUserID,
+            Email:          email,
+        }
+        if err := s.oauthRepo.Create(ctx, newOAuthAccount); err != nil {
+            return nil, nil, fmt.Errorf("failed to link google account: %w", err)
+        }
+    }
+
+    // 4. Generate token pair
+    tokens, err := s.generateAndSaveTokens(ctx, user.ID, user.Email, "", "")
+    if err != nil {
+        return nil, nil, err
+    }
+
+    return user, tokens, nil
 }

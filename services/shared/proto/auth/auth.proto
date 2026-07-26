@@ -114,6 +114,15 @@ message ValidateApiKeyResponse {
   string user_id  = 2;
 }
 
+// GoogleAuth — verifikasi Google ID Token dari client
+message GoogleAuthRequest {
+  string id_token = 1; // Google ID Token yang dikirim dari frontend/Gateway
+}
+message GoogleAuthResponse {
+  User      user   = 1;
+  TokenPair tokens = 2;
+}
+
 // Service Definition
 
 service AuthService {
@@ -128,4 +137,6 @@ service AuthService {
   rpc ListApiKeys(ListApiKeysRequest)     returns (ListApiKeysResponse);
   rpc DeleteApiKey(DeleteApiKeyRequest)   returns (DeleteApiKeyResponse);
   rpc ValidateApiKey(ValidateApiKeyRequest) returns (ValidateApiKeyResponse);
+
+  rpc GoogleAuth(GoogleAuthRequest) returns (GoogleAuthResponse);
 }

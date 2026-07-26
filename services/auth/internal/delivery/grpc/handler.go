@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"strings"
 
 	"github.com/deaprima/linkforge/services/auth/internal/entity"
 	"github.com/deaprima/linkforge/services/auth/internal/service"
@@ -133,6 +134,29 @@ func (h *AuthHandler) Logout(ctx context.Context, req *pb.LogoutRequest) (*pb.Lo
 	}, nil
 }
 
+func (h *AuthHandler) GetUser(ctx context.Context, req *pb.GetUserRequest) (*pb.GetUserResponse, error) {
+	userID, err := uuid.Parse(req.GetUserId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id format")
+	}
+
+	user, err := h.authService.GetUser(ctx, userID)
+	if err != nil {
+		if err.Error() == "user not found" {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		return nil, status.Errorf(codes.Internal, "failed to get user: %v", err)
+	}
+
+	return &pb.GetUserResponse{
+		User: &pb.User{
+			Id:		user.ID.String(),
+			Name:	user.Name,
+			Email: 	user.Email,
+		},
+	}, nil
+}
+
 // Helper: konversi entity.ApiKey → pb.ApiKey
 func toProtoApiKey(k *entity.ApiKey) *pb.ApiKey {
     proto := &pb.ApiKey{
@@ -197,5 +221,27 @@ func (h *AuthHandler) ValidateApiKey(ctx context.Context, req *pb.ValidateApiKey
     return &pb.ValidateApiKeyResponse{
         IsValid: true,
         UserId:  key.UserID.String(),
+    }, nil
+}
+
+func (h *AuthHandler) GoogleAuth(ctx context.Context, req *pb.GoogleAuthRequest) (*pb.GoogleAuthResponse, error) {
+    user, tokens, err := h.authService.GoogleAuth(ctx, req.GetIdToken())
+    if err != nil {
+        if strings.Contains(err.Error(), "invalid google id token") {
+            return nil, status.Error(codes.Unauthenticated, err.Error())
+        }
+        return nil, status.Errorf(codes.Internal, "google auth failed: %v", err)
+    }
+
+    return &pb.GoogleAuthResponse{
+        User: &pb.User{
+            Id:    user.ID.String(),
+            Name:  user.Name,
+            Email: user.Email,
+        },
+        Tokens: &pb.TokenPair{
+            AccessToken:  tokens.AccessToken,
+            RefreshToken: tokens.RefreshToken,
+        },
     }, nil
 }
