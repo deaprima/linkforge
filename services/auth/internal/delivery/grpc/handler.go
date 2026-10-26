@@ -102,7 +102,10 @@ func (h *AuthHandler) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequ
 		if ips := md.Get("x-forwarded-for"); len(ips) > 0 {
 			ip = ips[0]
 		}
-		if uas := md.Get("user-agent"); len(uas) > 0 {
+		// "user-agent" di-overwrite oleh grpc-go, jadi Gateway meneruskan UA asli lewat "x-user-agent"
+		if uas := md.Get("x-user-agent"); len(uas) > 0 {
+			userAgent = uas[0]
+		} else if uas := md.Get("user-agent"); len(uas) > 0 {
 			userAgent = uas[0]
 		}
 	}
@@ -153,6 +156,7 @@ func (h *AuthHandler) GetUser(ctx context.Context, req *pb.GetUserRequest) (*pb.
 			Id:		user.ID.String(),
 			Name:	user.Name,
 			Email: 	user.Email,
+			CreatedAt: timestamppb.New(user.CreatedAt),
 		},
 	}, nil
 }
@@ -208,6 +212,9 @@ func (h *AuthHandler) DeleteApiKey(ctx context.Context, req *pb.DeleteApiKeyRequ
         return nil, status.Error(codes.InvalidArgument, "invalid api_key_id format")
     }
     if err := h.authService.DeleteApiKey(ctx, userID, keyID); err != nil {
+        if err.Error() == "api key not found" {
+            return nil, status.Error(codes.NotFound, err.Error())
+        }
         return nil, status.Errorf(codes.Internal, "failed to delete api key: %v", err)
     }
     return &pb.DeleteApiKeyResponse{Success: true}, nil
