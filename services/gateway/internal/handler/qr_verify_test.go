@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/deaprima/linkforge/services/shared/breaker"
 	authpb "github.com/deaprima/linkforge/services/shared/proto/auth"
 	linkpb "github.com/deaprima/linkforge/services/shared/proto/link"
 	qrcode "github.com/skip2/go-qrcode"
@@ -219,6 +220,10 @@ func TestRedirect_BrowserGoesToWebPages(t *testing.T) {
 			return &linkpb.ResolveAliasResponse{OriginalUrl: "https://example.com", IsExpired: true}, nil
 		case "down":
 			return nil, status.Error(codes.Unavailable, "link service down")
+		case "tripped":
+			return nil, breaker.ErrOpen
+		case "broken":
+			return nil, status.Error(codes.Internal, "boom")
 		case "ok":
 			return &linkpb.ResolveAliasResponse{OriginalUrl: "https://example.com/dest"}, nil
 		}
@@ -231,6 +236,9 @@ func TestRedirect_BrowserGoesToWebPages(t *testing.T) {
 		{"locked", frontendURL + "/app/p/locked"},
 		{"old", frontendURL + "/app/expired?alias=old"},
 		{"missing", frontendURL + "/app/not-found?alias=missing"},
+		// Backend down tidak boleh menyamar jadi "link tidak ditemukan"
+		{"down", frontendURL + "/app/unavailable?alias=down"},
+		{"tripped", frontendURL + "/app/unavailable?alias=tripped"},
 		{"ok", "https://example.com/dest"},
 	}
 	for _, tt := range tests {
@@ -243,8 +251,8 @@ func TestRedirect_BrowserGoesToWebPages(t *testing.T) {
 		}
 	}
 
-	// Backend down tidak boleh menyamar jadi "link tidak ditemukan"
-	assertError(t, env.do(t, "GET", "/down", "", browser), 503, "SERVICE_UNAVAILABLE")
+	// Error yang bukan "backend down" tetap JSON
+	assertError(t, env.do(t, "GET", "/broken", "", browser), 500, "INTERNAL_ERROR")
 
 	// Client API (tanpa Accept: text/html) tetap mendapat JSON
 	assertError(t, env.do(t, "GET", "/locked", ""), 200, "PASSWORD_REQUIRED")

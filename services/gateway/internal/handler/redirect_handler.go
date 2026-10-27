@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/deaprima/linkforge/services/gateway/internal/response"
+	"github.com/deaprima/linkforge/services/shared/breaker"
 	pb "github.com/deaprima/linkforge/services/shared/proto/link"
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc/codes"
@@ -31,11 +33,17 @@ func (h *RedirectHandler) Resolve(c *gin.Context) {
 
 	res, err := h.links.ResolveAlias(rpcContext(c), &pb.ResolveAliasRequest{Alias: alias})
 	if err != nil {
-		// Pengunjung manusia diarahkan ke halaman "link tidak ditemukan", bukan JSON mentah.
-		// Error lain (mis. backend down) tetap JSON 503 supaya tidak menyamar jadi "not found".
-		if browser && status.Code(err) == codes.NotFound {
-			c.Redirect(http.StatusFound, webURL(h.frontendURL, WebPathNotFound, alias))
-			return
+		// Pengunjung manusia diarahkan ke halaman web app, bukan JSON mentah. Backend down punya
+		// halaman sendiri (503) supaya tidak menyamar jadi "not found"; error lain tetap JSON.
+		if browser {
+			switch {
+			case status.Code(err) == codes.NotFound:
+				c.Redirect(http.StatusFound, webURL(h.frontendURL, WebPathNotFound, alias))
+				return
+			case backendUnavailable(err):
+				c.Redirect(http.StatusFound, webURL(h.frontendURL, WebPathUnavailable, alias))
+				return
+			}
 		}
 		linkError(c, err)
 		return
@@ -59,6 +67,16 @@ func (h *RedirectHandler) Resolve(c *gin.Context) {
 		// 302 (bukan 301) supaya browser tidak cache redirect dan setiap klik tetap tercatat
 		c.Redirect(http.StatusFound, res.GetOriginalUrl())
 	}
+}
+
+// backendUnavailable: Link Service tidak bisa dihubungi (bukan error bisnis) — sama dengan
+// kondisi yang dipetakan GRPCError ke 503.
+func backendUnavailable(err error) bool {
+	if errors.Is(err, breaker.ErrOpen) {
+		return true
+	}
+	code := status.Code(err)
+	return code == codes.Unavailable || code == codes.DeadlineExceeded
 }
 
 // POST /:alias/verify

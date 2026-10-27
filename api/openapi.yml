@@ -982,7 +982,8 @@ paths:
       description: |
         Redirect temporary (302) ke URL asli, atau meminta password jika dilindungi.
         Untuk browser (`Accept: text/html`), respons non-redirect diganti 302 ke web app:
-        password → `/app/p/{alias}`, tidak ada → `/app/not-found?alias=`, expired → `/app/expired?alias=`.
+        password → `/app/p/{alias}`, tidak ada → `/app/not-found?alias=`, expired → `/app/expired?alias=`,
+        backend tidak tersedia → `/app/unavailable?alias=`.
       operationId: resolveRedirect
       parameters:
         - name: alias

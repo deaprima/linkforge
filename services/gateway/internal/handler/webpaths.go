@@ -14,7 +14,8 @@ const (
 	WebPathLogin     = "/app/login"
 	WebPathPassword  = "/app/p/" // + alias
 	WebPathNotFound  = "/app/not-found"
-	WebPathExpired   = "/app/expired"
+	WebPathExpired     = "/app/expired"
+	WebPathUnavailable = "/app/unavailable"
 )
 
 // wantsHTML: pengunjung via browser (navigasi biasa mengirim Accept: text/html,...).
