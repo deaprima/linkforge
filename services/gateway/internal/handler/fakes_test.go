@@ -2,9 +2,12 @@ package handler_test
 
 import (
 	"context"
+	"io"
 
+	analyticspb "github.com/deaprima/linkforge/services/shared/proto/analytics"
 	authpb "github.com/deaprima/linkforge/services/shared/proto/auth"
 	linkpb "github.com/deaprima/linkforge/services/shared/proto/link"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -83,6 +86,7 @@ type fakeLink struct {
 	deleteLink         func(context.Context, *linkpb.DeleteLinkRequest) (*linkpb.DeleteLinkResponse, error)
 	resolveAlias       func(context.Context, *linkpb.ResolveAliasRequest) (*linkpb.ResolveAliasResponse, error)
 	verifyLinkPassword func(context.Context, *linkpb.VerifyLinkPasswordRequest) (*linkpb.VerifyLinkPasswordResponse, error)
+	getUserLinkIDs     func(context.Context, *linkpb.GetUserLinkIDsRequest) (*linkpb.GetUserLinkIDsResponse, error)
 }
 
 func (f *fakeLink) CreateLink(ctx context.Context, r *linkpb.CreateLinkRequest) (*linkpb.CreateLinkResponse, error) {
@@ -105,4 +109,43 @@ func (f *fakeLink) ResolveAlias(ctx context.Context, r *linkpb.ResolveAliasReque
 }
 func (f *fakeLink) VerifyLinkPassword(ctx context.Context, r *linkpb.VerifyLinkPasswordRequest) (*linkpb.VerifyLinkPasswordResponse, error) {
 	return stub(f.verifyLinkPassword, ctx, r)
+}
+
+func (f *fakeLink) GetUserLinkIDs(ctx context.Context, r *linkpb.GetUserLinkIDsRequest) (*linkpb.GetUserLinkIDsResponse, error) {
+	return stub(f.getUserLinkIDs, ctx, r)
+}
+
+type fakeAnalytics struct {
+	getLinkAnalytics  func(context.Context, *analyticspb.GetLinkAnalyticsRequest) (*analyticspb.GetLinkAnalyticsResponse, error)
+	getSummary        func(context.Context, *analyticspb.GetSummaryRequest) (*analyticspb.GetSummaryResponse, error)
+	subscribeRealtime func(context.Context, *analyticspb.SubscribeRealtimeRequest) (grpc.ServerStreamingClient[analyticspb.ClickEvent], error)
+}
+
+func (f *fakeAnalytics) GetLinkAnalytics(ctx context.Context, r *analyticspb.GetLinkAnalyticsRequest) (*analyticspb.GetLinkAnalyticsResponse, error) {
+	return stub(f.getLinkAnalytics, ctx, r)
+}
+func (f *fakeAnalytics) GetSummary(ctx context.Context, r *analyticspb.GetSummaryRequest) (*analyticspb.GetSummaryResponse, error) {
+	return stub(f.getSummary, ctx, r)
+}
+func (f *fakeAnalytics) SubscribeRealtime(ctx context.Context, r *analyticspb.SubscribeRealtimeRequest) (grpc.ServerStreamingClient[analyticspb.ClickEvent], error) {
+	return stub(f.subscribeRealtime, ctx, r)
+}
+
+// fakeClickStream menyajikan event dari channel; channel ditutup = stream berakhir (Analytics putus).
+type fakeClickStream struct {
+	grpc.ClientStream // hanya Recv yang dipakai handler
+	ctx               context.Context
+	events            chan *analyticspb.ClickEvent
+}
+
+func (s *fakeClickStream) Recv() (*analyticspb.ClickEvent, error) {
+	select {
+	case ev, ok := <-s.events:
+		if !ok {
+			return nil, io.EOF
+		}
+		return ev, nil
+	case <-s.ctx.Done():
+		return nil, s.ctx.Err()
+	}
 }

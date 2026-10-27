@@ -30,6 +30,7 @@ type LinkService interface {
 	DeleteLink(ctx context.Context, req *pb.DeleteLinkRequest) (*pb.DeleteLinkResponse, error)
 	ResolveAlias(ctx context.Context, req *pb.ResolveAliasRequest) (*pb.ResolveAliasResponse, error)
 	VerifyLinkPassword(ctx context.Context, req *pb.VerifyLinkPasswordRequest) (*pb.VerifyLinkPasswordResponse, error)
+	GetUserLinkIDs(ctx context.Context, req *pb.GetUserLinkIDsRequest) (*pb.GetUserLinkIDsResponse, error)
 }
 
 type LinkHandler struct {

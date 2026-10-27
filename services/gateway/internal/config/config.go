@@ -11,6 +11,7 @@ type Config struct {
 	HTTPPort		string
 	AuthGRPCAddr	string
 	LinkGRPCAddr	string
+	AnalyticsGRPCAddr	string
 	RedisAddr		string
 
 	BaseURL			string		// prefix short_url, mis. https://linkforge.deaprima.my.id
@@ -37,6 +38,7 @@ func LoadConfig() *Config {
 	return &Config{
 		HTTPPort:     port,
 		AuthGRPCAddr: getEnv("AUTH_GRPC_ADDR"),
+		AnalyticsGRPCAddr: getEnv("ANALYTICS_GRPC_ADDR"),
 		LinkGRPCAddr: getEnv("LINK_GRPC_ADDR"),
 		RedisAddr:    getEnv("REDIS_ADDR"),
 

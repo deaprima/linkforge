@@ -38,22 +38,24 @@ func TestMain(m *testing.M) {
 }
 
 type testEnv struct {
-	auth   *fakeAuth
-	link   *fakeLink
-	google *handler.GoogleOAuth
-	checks map[string]handler.CheckFunc
+	auth      *fakeAuth
+	link      *fakeLink
+	analytics *fakeAnalytics
+	google    *handler.GoogleOAuth
+	checks    map[string]handler.CheckFunc
 }
 
 func newEnv() *testEnv {
 	return &testEnv{
-		auth:   &fakeAuth{},
-		link:   &fakeLink{},
-		google: handler.NewGoogleOAuth("", "", ""), // OAuth nonaktif secara default
-		checks: map[string]handler.CheckFunc{},
+		auth:      &fakeAuth{},
+		link:      &fakeLink{},
+		analytics: &fakeAnalytics{},
+		google:    handler.NewGoogleOAuth("", "", ""), // OAuth nonaktif secara default
+		checks:    map[string]handler.CheckFunc{},
 	}
 }
 
-func (e *testEnv) do(t *testing.T, method, path, body string, opts ...func(*http.Request)) *httptest.ResponseRecorder {
+func (e *testEnv) engine(t *testing.T) *gin.Engine {
 	t.Helper()
 	cookies := handler.CookieConfig{Secure: true, AccessTokenTTL: 15 * time.Minute, RefreshTokenTTL: 7 * 24 * time.Hour}
 	engine, err := router.New(router.Handlers{
@@ -61,11 +63,18 @@ func (e *testEnv) do(t *testing.T, method, path, body string, opts ...func(*http
 		Link:      handler.NewLinkHandler(e.link, baseURL),
 		Redirect:  handler.NewRedirectHandler(e.link),
 		Health:    handler.NewHealthHandler(e.checks),
+		Analytics: handler.NewAnalyticsHandler(e.analytics, e.link, e.auth, []string{frontendURL}),
 		Validator: e.auth,
 	}, router.Options{CORSOrigins: []string{frontendURL}})
 	if err != nil {
 		t.Fatal(err)
 	}
+	return engine
+}
+
+func (e *testEnv) do(t *testing.T, method, path, body string, opts ...func(*http.Request)) *httptest.ResponseRecorder {
+	t.Helper()
+	engine := e.engine(t)
 
 	var reader io.Reader
 	if body != "" {

@@ -40,6 +40,12 @@ func main() {
 	}
 	defer linkClient.Close()
 
+	analyticsClient, err := client.NewAnalyticsClient(cfg.AnalyticsGRPCAddr, cfg.GRPCTimeout)
+	if err != nil {
+		log.Fatalf("Failed to create analytics client: %v", err)
+	}
+	defer analyticsClient.Close()
+
 	// Redis (sekarang untuk readiness, nanti untuk rate limiting di Fase 3)
 	rdb := redis.NewClient(&redis.Options{Addr: cfg.RedisAddr})
 	defer rdb.Close()
@@ -60,10 +66,12 @@ func main() {
 		Link:     handler.NewLinkHandler(linkClient, cfg.BaseURL),
 		Redirect: handler.NewRedirectHandler(linkClient),
 		Health: handler.NewHealthHandler(map[string]handler.CheckFunc{
-			"auth":  authClient.Check,
-			"link":  linkClient.Check,
-			"redis": func(ctx context.Context) error { return rdb.Ping(ctx).Err() },
+			"auth":      authClient.Check,
+			"link":      linkClient.Check,
+			"analytics": analyticsClient.Check,
+			"redis":     func(ctx context.Context) error { return rdb.Ping(ctx).Err() },
 		}),
+		Analytics: handler.NewAnalyticsHandler(analyticsClient, linkClient, authClient, cfg.CORSOrigins),
 		Validator: authClient,
 	}, router.Options{
 		CORSOrigins:    cfg.CORSOrigins,

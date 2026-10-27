@@ -7,6 +7,7 @@ import (
 	"time"
 
 	authpb "github.com/deaprima/linkforge/services/shared/proto/auth"
+	analyticspb "github.com/deaprima/linkforge/services/shared/proto/analytics"
 	linkpb "github.com/deaprima/linkforge/services/shared/proto/link"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -41,6 +42,7 @@ func startServer(t *testing.T) string {
 	srv := grpc.NewServer()
 	authpb.RegisterAuthServiceServer(srv, authStub{})
 	linkpb.RegisterLinkServiceServer(srv, linkStub{})
+	analyticspb.RegisterAnalyticsServiceServer(srv, analyticsStub{})
 	healthpb.RegisterHealthServer(srv, health.NewServer())
 	go srv.Serve(lis)
 	t.Cleanup(srv.Stop)
@@ -116,5 +118,44 @@ func TestLinkClient_AgainstRealServer(t *testing.T) {
 		if code := status.Code(fn()); code != codes.Unimplemented {
 			t.Errorf("%s: code = %s, want Unimplemented", name, code)
 		}
+	}
+}
+
+// analyticsStub hanya mengimplementasi SubscribeRealtime; RPC lain jatuh ke Unimplemented.
+type analyticsStub struct {
+	analyticspb.UnimplementedAnalyticsServiceServer
+}
+
+func (analyticsStub) SubscribeRealtime(req *analyticspb.SubscribeRealtimeRequest, stream analyticspb.AnalyticsService_SubscribeRealtimeServer) error {
+	return stream.Send(&analyticspb.ClickEvent{LinkId: "for-" + req.GetUserId()})
+}
+
+func TestAnalyticsClient_AgainstRealServer(t *testing.T) {
+	addr := startServer(t)
+	c, err := NewAnalyticsClient(addr, time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	ctx := context.Background()
+
+	if err := c.Check(ctx); err != nil {
+		t.Fatalf("health check: %v", err)
+	}
+
+	stream, err := c.SubscribeRealtime(ctx, &analyticspb.SubscribeRealtimeRequest{UserId: "user-1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ev, err := stream.Recv()
+	if err != nil || ev.GetLinkId() != "for-user-1" {
+		t.Fatalf("SubscribeRealtime routed incorrectly: %v %v", ev, err)
+	}
+
+	if _, err := c.GetLinkAnalytics(ctx, &analyticspb.GetLinkAnalyticsRequest{}); status.Code(err) != codes.Unimplemented {
+		t.Errorf("GetLinkAnalytics: %v", err)
+	}
+	if _, err := c.GetSummary(ctx, &analyticspb.GetSummaryRequest{}); status.Code(err) != codes.Unimplemented {
+		t.Errorf("GetSummary: %v", err)
 	}
 }

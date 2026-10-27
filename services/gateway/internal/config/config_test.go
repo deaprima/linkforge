@@ -10,6 +10,7 @@ func setRequired(t *testing.T) {
 	t.Setenv("GATEWAY_PORT", "8080")
 	t.Setenv("AUTH_GRPC_ADDR", "localhost:50051")
 	t.Setenv("LINK_GRPC_ADDR", "localhost:50052")
+	t.Setenv("ANALYTICS_GRPC_ADDR", "localhost:50053")
 	t.Setenv("REDIS_ADDR", "localhost:6379")
 }
 
@@ -26,6 +27,7 @@ func TestLoadConfig_Defaults(t *testing.T) {
 		HTTPPort:          "8080",
 		AuthGRPCAddr:      "localhost:50051",
 		LinkGRPCAddr:      "localhost:50052",
+		AnalyticsGRPCAddr: "localhost:50053",
 		RedisAddr:         "localhost:6379",
 		BaseURL:           "http://localhost:8080",
 		FrontendURL:       "http://localhost:3000",
