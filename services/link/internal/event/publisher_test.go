@@ -167,4 +167,8 @@ func TestNewKafkaWriter(t *testing.T) {
 	if _, ok := w.Balancer.(*kafkago.Hash); !ok {
 		t.Errorf("balancer = %T, want *kafka.Hash (partition by link_id)", w.Balancer)
 	}
+	// Default kafka-go = RequireNone (acks=0): pesan bisa hilang tanpa error. Jangan sampai regress.
+	if w.RequiredAcks != kafkago.RequireOne {
+		t.Errorf("RequiredAcks = %v, want RequireOne — acks=0 silently drops events", w.RequiredAcks)
+	}
 }
