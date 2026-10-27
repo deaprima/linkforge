@@ -173,6 +173,7 @@ func toProtoApiKey(k *entity.ApiKey) *pb.ApiKey {
     proto := &pb.ApiKey{
         Id:        k.ID.String(),
         Name:      k.Name,
+        KeyPrefix: k.KeyPrefix,
         CreatedAt: timestamppb.New(k.CreatedAt),
     }
     if k.LastUsedAt != nil {

@@ -300,3 +300,11 @@ func TestApiKeys(t *testing.T) {
 }
 
 var errDB = errors.New("db down")
+
+func TestListApiKeys_IncludesPrefix(t *testing.T) {
+	keys := []entity.ApiKey{{ID: uuid.New(), Name: "CLI", KeyPrefix: "lf_sk_a3f9b2"}}
+	res, err := NewAuthHandler(&fakeAuthService{keys: keys}).ListApiKeys(context.Background(), &pb.ListApiKeysRequest{UserId: uuid.NewString()})
+	if err != nil || res.ApiKeys[0].KeyPrefix != "lf_sk_a3f9b2" {
+		t.Errorf("res=%v err=%v", res, err)
+	}
+}

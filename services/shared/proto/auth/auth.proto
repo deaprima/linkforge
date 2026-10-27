@@ -25,6 +25,8 @@ message ApiKey {
   string name = 2;
   google.protobuf.Timestamp last_used_at = 3;
   google.protobuf.Timestamp created_at   = 4;
+  // 12 karakter pertama raw key (mis. "lf_sk_a3f9b2"), untuk ditampilkan di UI setelah key dibuat
+  string key_prefix = 5;
 }
 
 // Auth RPC — Request & Response
