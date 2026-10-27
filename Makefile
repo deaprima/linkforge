@@ -12,3 +12,6 @@ proto:
 		--go-grpc_out=. --go-grpc_opt=paths=source_relative \
 		-I . \
 		shared/proto/analytics/analytics.proto
+	cd services && protoc --go_out=. --go_opt=paths=source_relative \
+		-I . \
+		shared/proto/events/link_events.proto
