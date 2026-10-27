@@ -1,5 +1,12 @@
 import { createBrowserRouter, Navigate } from "react-router";
+import { AppLayout } from "@/components/layout/AppLayout";
 import { GuestOnly, RequireAuth } from "@/lib/auth";
+import { ApiKeysPage } from "@/pages/app/ApiKeysPage";
+import { LinkDetailPage } from "@/pages/app/LinkDetailPage";
+import { EditLinkRoute, NewLinkRoute } from "@/pages/app/LinkModalRoutes";
+import { LinksPage } from "@/pages/app/LinksPage";
+import { OverviewPage } from "@/pages/app/OverviewPage";
+import { ProfilePage } from "@/pages/app/ProfilePage";
 import { RegisterPage, SignInPage } from "@/pages/auth/AuthPages";
 import { PendingPage } from "@/pages/PendingPage";
 
@@ -15,7 +22,18 @@ export const router = createBrowserRouter([
   { path: "/app", element: <Navigate to="/app/dashboard" replace /> },
   { path: "/app/login", element: <GuestOnly><SignInPage /></GuestOnly> },
   { path: "/app/register", element: <GuestOnly><RegisterPage /></GuestOnly> },
-  { path: "/app/dashboard", element: <RequireAuth><PendingPage title="Overview" /></RequireAuth> },
+  {
+    element: <RequireAuth><AppLayout /></RequireAuth>,
+    children: [
+      { path: "/app/dashboard", element: <OverviewPage /> },
+      { path: "/app/links", element: <LinksPage /> },
+      { path: "/app/links/new", element: <NewLinkRoute /> },
+      { path: "/app/links/:id", element: <LinkDetailPage /> },
+      { path: "/app/links/:id/edit", element: <EditLinkRoute /> },
+      { path: "/app/api-keys", element: <ApiKeysPage /> },
+      { path: "/app/profile", element: <ProfilePage /> },
+    ],
+  },
   { path: "/app/p/:alias", element: <PendingPage title="Password gate" /> },
   { path: "/app/not-found", element: <PendingPage title="404" /> },
   { path: "/app/expired", element: <PendingPage title="410" /> },

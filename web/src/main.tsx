@@ -1,5 +1,7 @@
 import "@fontsource-variable/instrument-sans/index.css";
 import "@fontsource/martian-mono/400.css";
+import "@fontsource/martian-mono/500.css";
+import "@fontsource/martian-mono/600.css";
 import "@fontsource/martian-mono/700.css";
 import "./index.css";
 

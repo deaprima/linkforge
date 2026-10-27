@@ -1,5 +1,5 @@
 import { cn } from "cn";
-import { forwardRef, useId, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
+import { forwardRef, useId, type AnchorHTMLAttributes, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
 
 /*
  * Primitive UI LinkForge — diterjemahkan dari Figma Components:
@@ -9,35 +9,36 @@ import { forwardRef, useId, type ButtonHTMLAttributes, type InputHTMLAttributes,
  * Semua bersudut tajam dengan border ink, tanpa shadow.
  */
 
-type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "solid" | "outline";
-  size?: "md" | "sm";
-  loading?: boolean;
-};
+type ButtonStyle = { variant?: "solid" | "outline"; size?: "md" | "sm" };
+
+function buttonClass({ variant = "solid", size = "md" }: ButtonStyle, className?: string) {
+  return cn(
+    "inline-flex cursor-pointer items-center justify-center gap-2 border-[1.5px] border-ink font-semibold whitespace-nowrap",
+    "transition-opacity disabled:cursor-not-allowed disabled:opacity-50",
+    "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal",
+    size === "md" ? "h-11 px-5 text-[15px]" : "h-9 px-3.5 text-sm",
+    variant === "solid" ? "bg-ink text-paper hover:opacity-90" : "bg-paper text-ink hover:bg-grid",
+    className,
+  );
+}
+
+type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & ButtonStyle & { loading?: boolean };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = "solid", size = "md", loading, disabled, className, children, ...props },
+  { variant, size, loading, disabled, className, children, ...props },
   ref,
 ) {
   return (
-    <button
-      ref={ref}
-      disabled={disabled || loading}
-      aria-busy={loading || undefined}
-      className={cn(
-        "inline-flex cursor-pointer items-center justify-center gap-2 border-[1.5px] border-ink font-semibold whitespace-nowrap",
-        "transition-opacity disabled:cursor-not-allowed disabled:opacity-50",
-        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal",
-        size === "md" ? "h-11 px-5 text-[15px]" : "h-9 px-3.5 text-sm",
-        variant === "solid" ? "bg-ink text-paper hover:opacity-90" : "bg-paper text-ink hover:bg-grid",
-        className,
-      )}
-      {...props}
-    >
+    <button ref={ref} disabled={disabled || loading} aria-busy={loading || undefined} className={buttonClass({ variant, size }, className)} {...props}>
       {loading ? "…" : children}
     </button>
   );
 });
+
+/** Tautan bergaya Button (mis. unduhan file). */
+export function ButtonLink({ variant, size, className, ...props }: AnchorHTMLAttributes<HTMLAnchorElement> & ButtonStyle) {
+  return <a className={buttonClass({ variant, size }, className)} {...props} />;
+}
 
 type FieldProps = InputHTMLAttributes<HTMLInputElement> & {
   label: string;
