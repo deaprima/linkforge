@@ -9,9 +9,26 @@ import (
     pb "github.com/deaprima/linkforge/services/shared/proto/link"
     "github.com/google/uuid"
     "google.golang.org/grpc/codes"
+    "google.golang.org/grpc/metadata"
     "google.golang.org/grpc/status"
     "google.golang.org/protobuf/types/known/timestamppb"
 )
+
+// clientInfo membaca data pengunjung yang diteruskan Gateway lewat gRPC metadata.
+func clientInfo(ctx context.Context) service.ClientInfo {
+    md, _ := metadata.FromIncomingContext(ctx)
+    first := func(key string) string {
+        if v := md.Get(key); len(v) > 0 {
+            return v[0]
+        }
+        return ""
+    }
+    return service.ClientInfo{
+        IP:        first("x-forwarded-for"),
+        UserAgent: first("x-user-agent"),
+        Referrer:  first("x-referer"),
+    }
+}
 
 type LinkHandler struct {
     pb.UnimplementedLinkServiceServer
@@ -183,7 +200,7 @@ func (h *LinkHandler) DeleteLink(ctx context.Context, req *pb.DeleteLinkRequest)
 }
 
 func (h *LinkHandler) ResolveAlias(ctx context.Context, req *pb.ResolveAliasRequest) (*pb.ResolveAliasResponse, error) {
-    result, err := h.linkService.ResolveAlias(ctx, req.GetAlias())
+    result, err := h.linkService.ResolveAlias(ctx, req.GetAlias(), clientInfo(ctx))
     if err != nil {
         return nil, mapError(err)
     }
@@ -197,7 +214,7 @@ func (h *LinkHandler) ResolveAlias(ctx context.Context, req *pb.ResolveAliasRequ
 }
 
 func (h *LinkHandler) VerifyLinkPassword(ctx context.Context, req *pb.VerifyLinkPasswordRequest) (*pb.VerifyLinkPasswordResponse, error) {
-    link, err := h.linkService.VerifyLinkPassword(ctx, req.GetAlias(), req.GetPassword())
+    link, err := h.linkService.VerifyLinkPassword(ctx, req.GetAlias(), req.GetPassword(), clientInfo(ctx))
     if err != nil {
         if err.Error() == "invalid password" {
             return nil, status.Error(codes.Unauthenticated, err.Error())

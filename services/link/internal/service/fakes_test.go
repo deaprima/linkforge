@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/deaprima/linkforge/services/link/internal/entity"
+	eventspb "github.com/deaprima/linkforge/services/shared/proto/events"
 	"github.com/google/uuid"
 )
 
@@ -192,6 +193,24 @@ func (r *fakeDomainRepo) IsBlocked(_ context.Context, domain string) (bool, erro
 		return false, r.err
 	}
 	return r.blocked[domain], nil
+}
+
+// fakePublisher mencatat event yang dipublish.
+type fakePublisher struct {
+	mu     sync.Mutex
+	events []*eventspb.LinkClicked
+}
+
+func (p *fakePublisher) PublishClick(ev *eventspb.LinkClicked) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.events = append(p.events, ev)
+}
+
+func (p *fakePublisher) published() []*eventspb.LinkClicked {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return append([]*eventspb.LinkClicked(nil), p.events...)
 }
 
 func ptr[T any](v T) *T { return &v }

@@ -10,6 +10,7 @@ import (
 	pb "github.com/deaprima/linkforge/services/shared/proto/link"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -28,6 +29,7 @@ type fakeLinkService struct {
 	gotPage        int
 	gotLimit       int
 	gotID, gotUser uuid.UUID
+	gotClient      service.ClientInfo
 }
 
 func (f *fakeLinkService) CreateLink(_ context.Context, in service.CreateLinkInput) (*service.LinkView, error) {
@@ -50,10 +52,12 @@ func (f *fakeLinkService) DeleteLink(_ context.Context, id, userID uuid.UUID) er
 	f.gotID, f.gotUser = id, userID
 	return f.err
 }
-func (f *fakeLinkService) ResolveAlias(context.Context, string) (*service.ResolveResult, error) {
+func (f *fakeLinkService) ResolveAlias(_ context.Context, _ string, client service.ClientInfo) (*service.ResolveResult, error) {
+	f.gotClient = client
 	return f.resolve, f.err
 }
-func (f *fakeLinkService) VerifyLinkPassword(context.Context, string, string) (*service.LinkView, error) {
+func (f *fakeLinkService) VerifyLinkPassword(_ context.Context, _, _ string, client service.ClientInfo) (*service.LinkView, error) {
+	f.gotClient = client
 	return f.link, f.err
 }
 func (f *fakeLinkService) GetUserLinkIDs(context.Context, uuid.UUID) ([]uuid.UUID, error) {
@@ -276,4 +280,36 @@ func TestGetUserLinkIDs(t *testing.T) {
 	}
 	_, err = NewLinkHandler(&fakeLinkService{err: errors.New("db down")}).GetUserLinkIDs(context.Background(), &pb.GetUserLinkIDsRequest{UserId: uuid.NewString()})
 	wantCode(t, err, codes.Internal)
+}
+
+func TestClientInfoFromMetadata(t *testing.T) {
+	md := metadata.Pairs("x-forwarded-for", "203.0.113.7", "x-user-agent", "Mozilla/5.0", "x-referer", "https://twitter.com/")
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+	want := service.ClientInfo{IP: "203.0.113.7", UserAgent: "Mozilla/5.0", Referrer: "https://twitter.com/"}
+
+	svc := &fakeLinkService{resolve: &service.ResolveResult{}, link: testView()}
+	h := NewLinkHandler(svc)
+
+	if _, err := h.ResolveAlias(ctx, &pb.ResolveAliasRequest{Alias: "abc"}); err != nil {
+		t.Fatal(err)
+	}
+	if svc.gotClient != want {
+		t.Errorf("ResolveAlias client = %+v, want %+v", svc.gotClient, want)
+	}
+
+	svc.gotClient = service.ClientInfo{}
+	if _, err := h.VerifyLinkPassword(ctx, &pb.VerifyLinkPasswordRequest{Alias: "abc"}); err != nil {
+		t.Fatal(err)
+	}
+	if svc.gotClient != want {
+		t.Errorf("VerifyLinkPassword client = %+v, want %+v", svc.gotClient, want)
+	}
+
+	// Tanpa metadata (mis. dipanggil langsung, bukan via Gateway) → kosong, tidak panic
+	if _, err := h.ResolveAlias(context.Background(), &pb.ResolveAliasRequest{Alias: "abc"}); err != nil {
+		t.Fatal(err)
+	}
+	if svc.gotClient != (service.ClientInfo{}) {
+		t.Errorf("client without metadata = %+v", svc.gotClient)
+	}
 }

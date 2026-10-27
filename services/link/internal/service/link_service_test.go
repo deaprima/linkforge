@@ -13,9 +13,15 @@ import (
 )
 
 func newTestService(links ...*entity.Link) (LinkService, *fakeLinkRepo, *fakeDomainRepo) {
+	svc, linkRepo, domainRepo, _ := newTestServiceWithPublisher(links...)
+	return svc, linkRepo, domainRepo
+}
+
+func newTestServiceWithPublisher(links ...*entity.Link) (LinkService, *fakeLinkRepo, *fakeDomainRepo, *fakePublisher) {
 	linkRepo := newFakeLinkRepo(links...)
 	domainRepo := &fakeDomainRepo{blocked: map[string]bool{"evil.com": true}}
-	return NewLinkService(linkRepo, domainRepo), linkRepo, domainRepo
+	publisher := &fakePublisher{}
+	return NewLinkService(linkRepo, domainRepo, publisher), linkRepo, domainRepo, publisher
 }
 
 func hashPassword(t *testing.T, pw string) *string {
@@ -377,13 +383,13 @@ func TestResolveAlias(t *testing.T) {
 		{"by short code", "abc123", "https://a.com", false, false, true, ""},
 		{"by custom alias", "promo", "https://b.com", false, false, true, ""},
 		{"expired link is flagged and not counted", "old999", "https://c.com", true, false, false, ""},
-		{"password protected link is flagged", "lock11", "https://d.com", false, true, true, ""},
+		{"password protected link is flagged but not counted before verify", "lock11", "https://d.com", false, true, false, ""},
 		{"unknown alias", "nothing", "", false, false, false, "link not found"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc, repo, _ := newTestService(active, custom, expired, locked)
-			res, err := svc.ResolveAlias(context.Background(), tt.alias)
+			res, err := svc.ResolveAlias(context.Background(), tt.alias, ClientInfo{})
 			if tt.wantErr != "" {
 				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 					t.Fatalf("want error %q, got %v", tt.wantErr, err)
@@ -415,7 +421,7 @@ func TestResolveAlias(t *testing.T) {
 func TestResolveAlias_RepositoryError(t *testing.T) {
 	svc, repo, _ := newTestService()
 	repo.getErr = errDB
-	if _, err := svc.ResolveAlias(context.Background(), "abc123"); !errors.Is(err, errDB) {
+	if _, err := svc.ResolveAlias(context.Background(), "abc123", ClientInfo{}); !errors.Is(err, errDB) {
 		t.Fatalf("want wrapped errDB, got %v", err)
 	}
 }
@@ -442,7 +448,7 @@ func TestVerifyLinkPassword(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc, _, _ := newTestService(locked, lockedExpired, open)
-			link, err := svc.VerifyLinkPassword(context.Background(), tt.alias, tt.password)
+			link, err := svc.VerifyLinkPassword(context.Background(), tt.alias, tt.password, ClientInfo{})
 			if tt.wantErr != "" {
 				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 					t.Fatalf("want error %q, got %v", tt.wantErr, err)
@@ -472,4 +478,80 @@ func TestGetUserLinkIDs(t *testing.T) {
 	if len(ids) != 2 {
 		t.Fatalf("got %d ids, want 2", len(ids))
 	}
+}
+
+func TestClickEvents(t *testing.T) {
+	past := time.Now().Add(-time.Hour)
+	owner := uuid.New()
+	active := &entity.Link{ID: uuid.New(), UserID: owner, OriginalURL: "https://a.com", ShortCode: "abc123", CustomAlias: ptr("promo")}
+	expired := &entity.Link{ID: uuid.New(), UserID: owner, OriginalURL: "https://c.com", ShortCode: "old999", ExpiredAt: &past}
+	locked := &entity.Link{ID: uuid.New(), UserID: owner, OriginalURL: "https://d.com", ShortCode: "lock11", PasswordHash: hashPassword(t, "lock1234")}
+	client := ClientInfo{IP: "203.0.113.7", UserAgent: "Mozilla/5.0", Referrer: "https://twitter.com/"}
+	ctx := context.Background()
+
+	t.Run("redirect publishes a complete event", func(t *testing.T) {
+		svc, _, _, pub := newTestServiceWithPublisher(active)
+		before := time.Now()
+		if _, err := svc.ResolveAlias(ctx, "promo", client); err != nil {
+			t.Fatal(err)
+		}
+		events := pub.published()
+		if len(events) != 1 {
+			t.Fatalf("published %d events, want 1", len(events))
+		}
+		ev := events[0]
+		if _, err := uuid.Parse(ev.EventId); err != nil {
+			t.Errorf("event_id %q is not a uuid", ev.EventId)
+		}
+		if ev.LinkId != active.ID.String() || ev.UserId != owner.String() || ev.Alias != "promo" ||
+			ev.Ip != client.IP || ev.UserAgent != client.UserAgent || ev.Referrer != client.Referrer {
+			t.Errorf("event = %+v", ev)
+		}
+		if ev.ClickedAt.AsTime().Before(before.Add(-time.Second)) {
+			t.Errorf("clicked_at %v too old", ev.ClickedAt.AsTime())
+		}
+	})
+
+	t.Run("each click gets a unique event id", func(t *testing.T) {
+		svc, _, _, pub := newTestServiceWithPublisher(active)
+		_, _ = svc.ResolveAlias(ctx, "promo", client)
+		_, _ = svc.ResolveAlias(ctx, "promo", client)
+		events := pub.published()
+		if len(events) != 2 || events[0].EventId == events[1].EventId {
+			t.Errorf("want 2 events with distinct ids, got %v", events)
+		}
+	})
+
+	t.Run("no event for expired, locked or unknown links", func(t *testing.T) {
+		svc, _, _, pub := newTestServiceWithPublisher(expired, locked)
+		_, _ = svc.ResolveAlias(ctx, "old999", client)
+		_, _ = svc.ResolveAlias(ctx, "lock11", client)
+		_, _ = svc.ResolveAlias(ctx, "missing", client)
+		if n := len(pub.published()); n != 0 {
+			t.Errorf("published %d events, want 0", n)
+		}
+	})
+
+	t.Run("password link publishes only after successful verify", func(t *testing.T) {
+		svc, repo, _, pub := newTestServiceWithPublisher(locked)
+		if _, err := svc.VerifyLinkPassword(ctx, "lock11", "wrong", client); err == nil {
+			t.Fatal("want error for wrong password")
+		}
+		if n := len(pub.published()); n != 0 {
+			t.Fatalf("wrong password published %d events", n)
+		}
+
+		if _, err := svc.VerifyLinkPassword(ctx, "lock11", "lock1234", client); err != nil {
+			t.Fatal(err)
+		}
+		events := pub.published()
+		if len(events) != 1 || events[0].LinkId != locked.ID.String() || events[0].Ip != client.IP {
+			t.Errorf("events = %v", events)
+		}
+		select {
+		case <-repo.clicked:
+		case <-time.After(200 * time.Millisecond):
+			t.Error("click_count not incremented after verify")
+		}
+	})
 }

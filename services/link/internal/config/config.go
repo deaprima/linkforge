@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 )
 
 type Config struct {
-	GRPCPort	string
-	DatabaseDSN	string
+	GRPCPort		string
+	DatabaseDSN		string
+	KafkaBrokers	[]string
 }
 
 func LoadConfig() *Config {
@@ -23,6 +25,7 @@ func LoadConfig() *Config {
 	return &Config{
 		GRPCPort: 	getEnv("LINK_PORT"),
 		DatabaseDSN: dbDSN,
+		KafkaBrokers: strings.Split(getEnv("KAFKA_BROKERS"), ","),
 	}
 }
 
