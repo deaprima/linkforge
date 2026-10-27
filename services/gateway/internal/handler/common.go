@@ -16,12 +16,14 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// rpcContext meneruskan IP & User-Agent client ke service internal via gRPC metadata.
+// rpcContext meneruskan IP, User-Agent & Referer client ke service internal via gRPC metadata
+// (dipakai untuk audit refresh token dan event analytics link.clicked).
 // "user-agent" adalah header reserved di grpc-go, jadi dikirim sebagai "x-user-agent".
 func rpcContext(c *gin.Context) context.Context {
 	return metadata.AppendToOutgoingContext(c.Request.Context(),
 		"x-forwarded-for", c.ClientIP(),
 		"x-user-agent", c.Request.UserAgent(),
+		"x-referer", c.Request.Referer(),
 	)
 }
 

@@ -616,6 +616,28 @@ func TestVerifyPassword_InvalidResultWithoutError(t *testing.T) {
 	}
 }
 
+func TestRedirect_ForwardsClientInfoForAnalytics(t *testing.T) {
+	env := newEnv()
+	var md metadata.MD
+	env.link.resolveAlias = func(ctx context.Context, _ *linkpb.ResolveAliasRequest) (*linkpb.ResolveAliasResponse, error) {
+		md, _ = metadata.FromOutgoingContext(ctx)
+		return &linkpb.ResolveAliasResponse{OriginalUrl: "https://example.com"}, nil
+	}
+
+	env.do(t, "GET", "/promo", "", func(r *http.Request) {
+		r.Header.Set("User-Agent", "Mozilla/5.0 (iPhone)")
+		r.Header.Set("Referer", "https://twitter.com/")
+		r.RemoteAddr = "203.0.113.7:51234"
+	})
+
+	want := map[string]string{"x-forwarded-for": "203.0.113.7", "x-user-agent": "Mozilla/5.0 (iPhone)", "x-referer": "https://twitter.com/"}
+	for key, val := range want {
+		if got := md.Get(key); len(got) == 0 || got[0] != val {
+			t.Errorf("metadata %s = %v, want %q", key, got, val)
+		}
+	}
+}
+
 // Ops & routing
 
 func TestHealth(t *testing.T) {
