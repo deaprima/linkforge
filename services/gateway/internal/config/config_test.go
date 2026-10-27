@@ -17,7 +17,8 @@ func setRequired(t *testing.T) {
 func TestLoadConfig_Defaults(t *testing.T) {
 	setRequired(t)
 	for _, key := range []string{"BASE_URL", "FRONTEND_URL", "CORS_ALLOWED_ORIGINS", "TRUSTED_PROXIES", "GRPC_TIMEOUT",
-		"JWT_ACCESS_DURATION", "JWT_REFRESH_DURATION", "COOKIE_SECURE", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URL"} {
+		"JWT_ACCESS_DURATION", "JWT_REFRESH_DURATION", "COOKIE_SECURE", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URL",
+		"VERIFY_LIMIT_PER_ALIAS", "VERIFY_LIMIT_PER_IP", "VERIFY_LIMIT_WINDOW"} {
 		t.Setenv(key, "")
 	}
 
@@ -37,6 +38,9 @@ func TestLoadConfig_Defaults(t *testing.T) {
 		RefreshTokenDur:   7 * 24 * time.Hour,
 		CookieSecure:      true,
 		GoogleRedirectURL: "http://localhost:8080/api/v1/auth/oauth/google/callback",
+		VerifyLimitPerAlias: 5,
+		VerifyLimitPerIP:    20,
+		VerifyLimitWindow:   15 * time.Minute,
 	}
 	if !reflect.DeepEqual(cfg, want) {
 		t.Errorf("got  %+v\nwant %+v", cfg, want)

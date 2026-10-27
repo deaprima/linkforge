@@ -3,6 +3,7 @@ package config
 import (
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -29,6 +30,11 @@ type Config struct {
 	GoogleClientID		string
 	GoogleClientSecret	string
 	GoogleRedirectURL	string
+
+	// Brute-force protection POST /:alias/verify (lihat API-CONTRACT.md)
+	VerifyLimitPerAlias	int
+	VerifyLimitPerIP	int
+	VerifyLimitWindow	time.Duration
 }
 
 func LoadConfig() *Config {
@@ -55,7 +61,23 @@ func LoadConfig() *Config {
 		GoogleClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
 		GoogleClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
 		GoogleRedirectURL:  getEnvDefault("GOOGLE_REDIRECT_URL", "http://localhost:"+port+"/api/v1/auth/oauth/google/callback"),
+
+		VerifyLimitPerAlias: getEnvInt("VERIFY_LIMIT_PER_ALIAS", 5),
+		VerifyLimitPerIP:    getEnvInt("VERIFY_LIMIT_PER_IP", 20),
+		VerifyLimitWindow:   getEnvDuration("VERIFY_LIMIT_WINDOW", 15*time.Minute),
 	}
+}
+
+func getEnvInt(key string, def int) int {
+	val := os.Getenv(key)
+	if val == "" {
+		return def
+	}
+	n, err := strconv.Atoi(val)
+	if err != nil || n < 1 {
+		log.Fatalf("Fatal Config Error: Variable '%s' must be a positive integer, got '%s'", key, val)
+	}
+	return n
 }
 
 func getEnv(key string) string {
