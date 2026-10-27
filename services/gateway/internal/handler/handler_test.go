@@ -80,7 +80,7 @@ func (e *testEnv) engine(t *testing.T) *gin.Engine {
 	engine, err := router.New(router.Handlers{
 		Auth:      handler.NewAuthHandler(e.auth, e.google, cookies, frontendURL),
 		Link:      handler.NewLinkHandler(e.link, baseURL),
-		Redirect:  handler.NewRedirectHandler(e.link),
+		Redirect:  handler.NewRedirectHandler(e.link, frontendURL),
 		Health:    handler.NewHealthHandler(e.checks),
 		Analytics: handler.NewAnalyticsHandler(e.analytics, e.link, e.auth, []string{frontendURL}),
 		Validator:       e.auth,
@@ -279,11 +279,11 @@ func TestRefresh(t *testing.T) {
 			t.Error("body-based refresh must not set cookies")
 		}
 	})
-	t.Run("from cookie rotates cookies", func(t *testing.T) {
+	t.Run("from cookie rotates cookies and never returns tokens in the body", func(t *testing.T) {
 		var got string
 		w := newRefreshEnv(&got).do(t, "POST", "/api/v1/auth/refresh", "", withCookie("refresh_token", "old-cookie"))
-		if w.Code != 200 || got != "old-cookie" {
-			t.Fatalf("status %d, token %q", w.Code, got)
+		if w.Code != http.StatusNoContent || got != "old-cookie" || w.Body.Len() != 0 {
+			t.Fatalf("status %d, token %q, body %q", w.Code, got, w.Body.String())
 		}
 		rc, ac := findCookie(w, "refresh_token"), findCookie(w, "access_token")
 		if rc == nil || rc.Value != "new-refresh" || rc.Path != "/api/v1/auth" || !rc.HttpOnly || !rc.Secure || rc.SameSite != http.SameSiteLaxMode {
@@ -442,7 +442,7 @@ func TestGoogleOAuth(t *testing.T) {
 				opts = append(opts, withCookie("oauth_state", tt.cookie))
 			}
 			w := env.do(t, "GET", "/api/v1/auth/oauth/google/callback"+tt.query, "", opts...)
-			if w.Code != http.StatusFound || w.Header().Get("Location") != frontendURL+"/login?error="+tt.reason {
+			if w.Code != http.StatusFound || w.Header().Get("Location") != frontendURL+"/app/login?error="+tt.reason {
 				t.Errorf("got %d → %s", w.Code, w.Header().Get("Location"))
 			}
 			if findCookie(w, "access_token") != nil {
@@ -758,10 +758,10 @@ func TestGoogleCallback(t *testing.T) {
 		authErr      error
 		wantLocation string
 	}{
-		{"success sets cookies and redirects to dashboard", 200, `{"id_token":"google-id-token"}`, nil, frontendURL + "/dashboard"},
-		{"google rejects code", 400, `{"error":"invalid_grant"}`, nil, frontendURL + "/login?error=exchange_failed"},
-		{"response without id_token", 200, `{"access_token":"x"}`, nil, frontendURL + "/login?error=exchange_failed"},
-		{"auth service rejects id token", 200, `{"id_token":"google-id-token"}`, status.Error(codes.Unauthenticated, "email is not verified"), frontendURL + "/login?error=auth_failed"},
+		{"success sets cookies and redirects to dashboard", 200, `{"id_token":"google-id-token"}`, nil, frontendURL + "/app/dashboard"},
+		{"google rejects code", 400, `{"error":"invalid_grant"}`, nil, frontendURL + "/app/login?error=exchange_failed"},
+		{"response without id_token", 200, `{"access_token":"x"}`, nil, frontendURL + "/app/login?error=exchange_failed"},
+		{"auth service rejects id token", 200, `{"id_token":"google-id-token"}`, status.Error(codes.Unauthenticated, "email is not verified"), frontendURL + "/app/login?error=auth_failed"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -786,7 +786,7 @@ func TestGoogleCallback(t *testing.T) {
 				t.Errorf("state cookie must be cleared after callback: %+v", c)
 			}
 			access := findCookie(w, "access_token")
-			if tt.wantLocation == frontendURL+"/dashboard" {
+			if tt.wantLocation == frontendURL+"/app/dashboard" {
 				if access == nil || access.Value != "new-access" || findCookie(w, "refresh_token").Value != "new-refresh" {
 					t.Errorf("auth cookies not set: %v", w.Result().Cookies())
 				}

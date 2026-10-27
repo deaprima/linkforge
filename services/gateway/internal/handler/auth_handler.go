@@ -63,6 +63,7 @@ type authDTO struct {
 type apiKeyDTO struct {
 	ID         string     `json:"id"`
 	Name       string     `json:"name"`
+	KeyPrefix  string     `json:"key_prefix"`
 	LastUsedAt *time.Time `json:"last_used_at"`
 	CreatedAt  time.Time  `json:"created_at"`
 }
@@ -131,7 +132,21 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		})
 		return
 	}
-	response.OK(c, http.StatusCreated, toAuthDTO(res.GetUser(), res.GetTokens()))
+	h.respondSession(c, http.StatusCreated, res.GetUser(), res.GetTokens())
+}
+
+// sessionModeHeader: web app mengirim "X-Session-Mode: cookie" supaya token tidak pernah ada di body
+// JSON (yang bisa dibaca JavaScript/XSS). Client lain tetap menerima token di body.
+const sessionModeHeader = "X-Session-Mode"
+
+// respondSession memasang cookie sesi, lalu membalas user (+ token kecuali mode cookie-only).
+func (h *AuthHandler) respondSession(c *gin.Context, status int, user *pb.User, tokens *pb.TokenPair) {
+	h.cookies.setTokens(c, tokens.GetAccessToken(), tokens.GetRefreshToken())
+	if c.GetHeader(sessionModeHeader) == "cookie" {
+		response.OK(c, status, gin.H{"user": toUserDTO(user)})
+		return
+	}
+	response.OK(c, status, toAuthDTO(user, tokens))
 }
 
 // POST /api/v1/auth/login
@@ -149,7 +164,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		response.GRPCError(c, err, nil)
 		return
 	}
-	response.OK(c, http.StatusOK, toAuthDTO(res.GetUser(), res.GetTokens()))
+	h.respondSession(c, http.StatusOK, res.GetUser(), res.GetTokens())
 }
 
 // POST /api/v1/auth/refresh — refresh token dari body, atau dari cookie (client OAuth/browser)
@@ -183,7 +198,10 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 
 	tokens := res.GetTokens()
 	if fromCookie {
+		// Sesi browser: token baru hanya lewat cookie, tidak pernah di body (lihat respondSession)
 		h.cookies.setTokens(c, tokens.GetAccessToken(), tokens.GetRefreshToken())
+		response.NoContent(c)
+		return
 	}
 	response.OK(c, http.StatusOK, tokenDTO{
 		AccessToken:  tokens.GetAccessToken(),
@@ -262,6 +280,7 @@ func (h *AuthHandler) ListApiKeys(c *gin.Context) {
 		keys = append(keys, apiKeyDTO{
 			ID:         k.GetId(),
 			Name:       k.GetName(),
+			KeyPrefix:  k.GetKeyPrefix(),
 			LastUsedAt: timePtr(k.GetLastUsedAt()),
 			CreatedAt:  timeVal(k.GetCreatedAt()),
 		})
@@ -338,11 +357,11 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 	}
 
 	h.cookies.setTokens(c, res.GetTokens().GetAccessToken(), res.GetTokens().GetRefreshToken())
-	c.Redirect(http.StatusFound, h.frontendURL+"/dashboard")
+	c.Redirect(http.StatusFound, h.frontendURL+WebPathDashboard)
 }
 
 func (h *AuthHandler) redirectOAuthError(c *gin.Context, reason string) {
-	c.Redirect(http.StatusFound, h.frontendURL+"/login?error="+url.QueryEscape(reason))
+	c.Redirect(http.StatusFound, h.frontendURL+WebPathLogin+"?error="+url.QueryEscape(reason))
 }
 
 func randomState() (string, error) {

@@ -50,7 +50,7 @@ func New(h Handlers, opts Options) (*gin.Engine, error) {
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     opts.CORSOrigins,
 		AllowMethods:     []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodOptions},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-API-Key"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-API-Key", "X-Session-Mode"},
 		ExposeHeaders:    []string{"X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset", "Retry-After"},
 		AllowCredentials: true, // dibutuhkan untuk cookie hasil OAuth
 		MaxAge:           12 * time.Hour,

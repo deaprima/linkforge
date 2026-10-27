@@ -6,15 +6,18 @@ import (
 	"github.com/deaprima/linkforge/services/gateway/internal/response"
 	pb "github.com/deaprima/linkforge/services/shared/proto/link"
 	"github.com/gin-gonic/gin"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // RedirectHandler melayani endpoint publik /:alias (tanpa auth).
 type RedirectHandler struct {
-	links LinkService
+	links       LinkService
+	frontendURL string
 }
 
-func NewRedirectHandler(links LinkService) *RedirectHandler {
-	return &RedirectHandler{links: links}
+func NewRedirectHandler(links LinkService, frontendURL string) *RedirectHandler {
+	return &RedirectHandler{links: links, frontendURL: frontendURL}
 }
 
 type verifyPasswordRequest struct {
@@ -23,16 +26,33 @@ type verifyPasswordRequest struct {
 
 // GET /:alias
 func (h *RedirectHandler) Resolve(c *gin.Context) {
-	res, err := h.links.ResolveAlias(rpcContext(c), &pb.ResolveAliasRequest{Alias: c.Param("alias")})
+	alias := c.Param("alias")
+	browser := wantsHTML(c)
+
+	res, err := h.links.ResolveAlias(rpcContext(c), &pb.ResolveAliasRequest{Alias: alias})
 	if err != nil {
+		// Pengunjung manusia diarahkan ke halaman "link tidak ditemukan", bukan JSON mentah.
+		// Error lain (mis. backend down) tetap JSON 503 supaya tidak menyamar jadi "not found".
+		if browser && status.Code(err) == codes.NotFound {
+			c.Redirect(http.StatusFound, webURL(h.frontendURL, WebPathNotFound, alias))
+			return
+		}
 		linkError(c, err)
 		return
 	}
 
 	switch {
 	case res.GetIsExpired():
+		if browser {
+			c.Redirect(http.StatusFound, webURL(h.frontendURL, WebPathExpired, alias))
+			return
+		}
 		response.Error(c, http.StatusGone, response.CodeLinkExpired, "This link has expired.")
 	case res.GetHasPassword():
+		if browser {
+			c.Redirect(http.StatusFound, webURL(h.frontendURL, WebPathPassword, alias))
+			return
+		}
 		// Bukan error state sebenarnya: FE menampilkan form password lalu POST /:alias/verify
 		response.Error(c, http.StatusOK, response.CodePasswordRequired, "This link is password protected.")
 	default:

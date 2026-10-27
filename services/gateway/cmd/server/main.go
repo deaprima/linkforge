@@ -66,7 +66,7 @@ func main() {
 	engine, err := router.New(router.Handlers{
 		Auth:     handler.NewAuthHandler(authClient, google, cookies, cfg.FrontendURL),
 		Link:     handler.NewLinkHandler(linkClient, cfg.BaseURL),
-		Redirect: handler.NewRedirectHandler(linkClient),
+		Redirect: handler.NewRedirectHandler(linkClient, cfg.FrontendURL),
 		Health: handler.NewHealthHandler(map[string]handler.CheckFunc{
 			"auth":      authClient.Check,
 			"link":      linkClient.Check,
