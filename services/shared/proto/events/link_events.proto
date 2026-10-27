@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package events;
+
+option go_package = "github.com/deaprima/linkforge/services/shared/proto/events";
+
+import "google/protobuf/timestamp.proto";
+
+// LinkClicked dipublish setiap kali redirect short link berhasil
+// (termasuk setelah password link berhasil diverifikasi).
+//
+// Topic       : "link.clicked"
+// Producer    : Link Service
+// Consumer    : Analytics Service (consumer group "analytics-service")
+// Encoding    : protobuf binary (bukan JSON)
+// Message key : link_id — semua event untuk satu link masuk partisi yang sama,
+//               sehingga urutannya terjaga
+// Delivery    : at-least-once — event yang sama BISA diterima lebih dari sekali
+//               (mis. consumer restart sebelum commit offset), jadi consumer
+//               WAJIB idempotent berdasarkan event_id.
+message LinkClicked {
+  // UUID v4, unik per klik. Kunci idempotency di sisi consumer.
+  string event_id = 1;
+
+  string link_id = 2;
+
+  // Pemilik link. Dipakai untuk memfilter event realtime per user
+  // tanpa harus bertanya ke Link Service untuk setiap event.
+  string user_id = 3;
+
+  // Alias publik yang diakses (custom_alias atau short_code).
+  string alias = 4;
+
+  // Informasi client, diteruskan Gateway lewat gRPC metadata.
+  // Mentah — parsing (browser/OS/device, negara) dilakukan oleh consumer.
+  string ip         = 5;
+  string user_agent = 6;
+  string referrer   = 7; // kosong kalau tidak ada header Referer
+
+  google.protobuf.Timestamp clicked_at = 8;
+}

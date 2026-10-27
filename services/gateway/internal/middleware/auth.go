@@ -31,7 +31,7 @@ func RequireAuth(v CredentialValidator, allowAPIKey bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
 
-		if token, ok := bearerToken(c); ok {
+		if token, ok := BearerToken(c); ok {
 			res, err := v.ValidateToken(ctx, &pb.ValidateTokenRequest{AccessToken: token})
 			if err != nil {
 				response.GRPCError(c, err, nil)
@@ -74,7 +74,8 @@ func UserID(c *gin.Context) string {
 	return c.GetString(ctxUserID)
 }
 
-func bearerToken(c *gin.Context) (string, bool) {
+// BearerToken mengambil access token dari header Authorization: Bearer, atau cookie access_token.
+func BearerToken(c *gin.Context) (string, bool) {
 	if header := c.GetHeader("Authorization"); header != "" {
 		token, found := strings.CutPrefix(header, "Bearer ")
 		token = strings.TrimSpace(token)

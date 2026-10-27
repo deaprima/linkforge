@@ -1,18 +1,22 @@
 package main
 
 import (
+    "context"
     "log"
     "net"
     "os"
     "os/signal"
     "syscall"
+    "time"
 
     "github.com/deaprima/linkforge/services/link/internal/config"
     grpcDelivery "github.com/deaprima/linkforge/services/link/internal/delivery/grpc"
     "github.com/deaprima/linkforge/services/link/internal/entity"
+    "github.com/deaprima/linkforge/services/link/internal/event"
     "github.com/deaprima/linkforge/services/link/internal/repository"
     "github.com/deaprima/linkforge/services/link/internal/service"
     "github.com/deaprima/linkforge/services/shared/database"
+    "github.com/deaprima/linkforge/services/shared/kafka"
     pb "github.com/deaprima/linkforge/services/shared/proto/link"
     "github.com/joho/godotenv"
     "google.golang.org/grpc"
@@ -20,8 +24,11 @@ import (
     healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
+const clickTopicPartitions = 3
+
 func main() {
-    if err := godotenv.Load(); err != nil {
+    // Sama seperti Auth & Gateway: dijalankan dari folder services/, .env ada di root repo
+    if err := godotenv.Load("../.env"); err != nil {
         log.Println("No .env file found, reading from environment")
     }
 
@@ -44,11 +51,20 @@ func main() {
     }
     log.Println("Database migration completed successfully!")
 
+    // Kafka: pastikan topic ada. Tidak fatal — redirect tetap jalan walau Kafka belum siap,
+    // event hanya gagal terkirim (lihat KafkaPublisher).
+    topicCtx, cancelTopic := context.WithTimeout(context.Background(), 10*time.Second)
+    if err := kafka.EnsureTopic(topicCtx, cfg.KafkaBrokers[0], kafka.TopicLinkClicked, clickTopicPartitions); err != nil {
+        log.Printf("Warning: could not ensure kafka topic %q: %v", kafka.TopicLinkClicked, err)
+    }
+    cancelTopic()
+    publisher := event.NewKafkaPublisher(event.NewKafkaWriter(cfg.KafkaBrokers, kafka.TopicLinkClicked), 0)
+
     // Dependency injection
     linkRepo   := repository.NewLinkRepository(db)
     domainRepo := repository.NewDomainRepository(db)
 
-    linkService := service.NewLinkService(linkRepo, domainRepo)
+    linkService := service.NewLinkService(linkRepo, domainRepo, publisher)
     linkHandler := grpcDelivery.NewLinkHandler(linkService)
 
     // Setup gRPC server
@@ -78,6 +94,13 @@ func main() {
 
     log.Println("Shutting down Link Service gracefully...")
     healthServer.Shutdown()
+    // GracefulStop dulu supaya tidak ada request baru yang publish event setelah publisher ditutup
     grpcServer.GracefulStop()
+
+    flushCtx, cancelFlush := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancelFlush()
+    if err := publisher.Close(flushCtx); err != nil {
+        log.Printf("Failed to close kafka publisher: %v", err)
+    }
     log.Println("Link Service stopped.")
 }

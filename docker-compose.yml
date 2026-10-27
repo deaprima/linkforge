@@ -29,7 +29,9 @@ services:
 
     # Kafka - KRaft mode
   kafka:
-    image: apache/kafka:latest
+    # Di-pin (jangan :latest) supaya upgrade major version Kafka selalu disengaja & diuji dulu
+    # terhadap segmentio/kafka-go. Teruji: produce, consumer group, commit offset.
+    image: apache/kafka:4.3.1
     container_name: linkforge-kafka
     ports:
       - "${KAFKA_PORT}:9092"

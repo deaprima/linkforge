@@ -11,8 +11,10 @@ import (
 
 	"github.com/deaprima/linkforge/services/link/internal/entity"
 	"github.com/deaprima/linkforge/services/link/internal/repository"
+	eventspb "github.com/deaprima/linkforge/services/shared/proto/events"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type CreateLinkInput struct {
@@ -39,14 +41,27 @@ type ResolveResult struct {
     HasPassword bool
 }
 
+// ClientInfo adalah data pengunjung yang diteruskan Gateway, dipakai untuk event analytics.
+type ClientInfo struct {
+    IP        string
+    UserAgent string
+    Referrer  string
+}
+
+// ClickPublisher mengirim event link.clicked. Implementasinya wajib non-blocking
+// karena dipanggil di jalur redirect.
+type ClickPublisher interface {
+    PublishClick(ev *eventspb.LinkClicked)
+}
+
 type LinkService interface {
     CreateLink(ctx context.Context, input CreateLinkInput) (*LinkView, error)
     GetLink(ctx context.Context, id, userID uuid.UUID) (*LinkView, error)
     ListLinks(ctx context.Context, userID uuid.UUID, page, limit int) ([]*LinkView, int64, error)
     UpdateLink(ctx context.Context, input UpdateLinkInput) (*LinkView, error)
     DeleteLink(ctx context.Context, id, userID uuid.UUID) error
-    ResolveAlias(ctx context.Context, alias string) (*ResolveResult, error)
-    VerifyLinkPassword(ctx context.Context, alias, password string) (*LinkView, error)
+    ResolveAlias(ctx context.Context, alias string, client ClientInfo) (*ResolveResult, error)
+    VerifyLinkPassword(ctx context.Context, alias, password string, client ClientInfo) (*LinkView, error)
     GetUserLinkIDs(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error)
 }
 
@@ -82,16 +97,39 @@ func toLinkView(link *entity.Link) *LinkView {
 type linkService struct {
     linkRepo   repository.LinkRepository
     domainRepo repository.DomainRepository
+    publisher  ClickPublisher
 }
 
 func NewLinkService(
     linkRepo repository.LinkRepository,
     domainRepo repository.DomainRepository,
+    publisher ClickPublisher,
 ) LinkService {
     return &linkService{
         linkRepo:   linkRepo,
         domainRepo: domainRepo,
+        publisher:  publisher,
     }
+}
+
+// recordClick dipanggil HANYA saat redirect benar-benar terjadi (link aktif, dan
+// password sudah diverifikasi kalau ada): increment counter ringan + publish event.
+func (s *linkService) recordClick(link *entity.Link, alias string, client ClientInfo) {
+    // Fire-and-forget, tidak memblokir redirect
+    go func() {
+        _ = s.linkRepo.IncrementClickCount(context.Background(), link.ID)
+    }()
+
+    s.publisher.PublishClick(&eventspb.LinkClicked{
+        EventId:   uuid.NewString(),
+        LinkId:    link.ID.String(),
+        UserId:    link.UserID.String(),
+        Alias:     alias,
+        Ip:        client.IP,
+        UserAgent: client.UserAgent,
+        Referrer:  client.Referrer,
+        ClickedAt: timestamppb.Now(),
+    })
 }
 
 // extractDomain mengambil host dari sebuah URL string.
@@ -270,7 +308,7 @@ func (s *linkService) DeleteLink(ctx context.Context, id, userID uuid.UUID) erro
     return nil
 }
 
-func (s *linkService) ResolveAlias(ctx context.Context, alias string) (*ResolveResult, error) {
+func (s *linkService) ResolveAlias(ctx context.Context, alias string, client ClientInfo) (*ResolveResult, error) {
     // Coba cari via custom_alias dulu
     link, err := s.linkRepo.GetByCustomAlias(ctx, alias)
     if err != nil {
@@ -295,22 +333,22 @@ func (s *linkService) ResolveAlias(ctx context.Context, alias string) (*ResolveR
         isExpired = true
     }
 
-    // Increment click count secara async (fire-and-forget)
-    if !isExpired {
-        go func() {
-            _ = s.linkRepo.IncrementClickCount(context.Background(), link.ID)
-        }()
+    hasPassword := link.PasswordHash != nil
+
+    // Link berpassword baru dihitung setelah VerifyLinkPassword sukses
+    if !isExpired && !hasPassword {
+        s.recordClick(link, alias, client)
     }
 
     return &ResolveResult{
         LinkID:      link.ID,
         OriginalURL: link.OriginalURL,
         IsExpired:   isExpired,
-        HasPassword: link.PasswordHash != nil,
+        HasPassword: hasPassword,
     }, nil
 }
 
-func (s *linkService) VerifyLinkPassword(ctx context.Context, alias, password string) (*LinkView, error) {
+func (s *linkService) VerifyLinkPassword(ctx context.Context, alias, password string, client ClientInfo) (*LinkView, error) {
     // Resolve alias dulu
     link, err := s.linkRepo.GetByCustomAlias(ctx, alias)
     if err != nil {
@@ -334,6 +372,7 @@ func (s *linkService) VerifyLinkPassword(ctx context.Context, alias, password st
     if err := bcrypt.CompareHashAndPassword([]byte(*link.PasswordHash), []byte(password)); err != nil {
         return nil, errors.New("invalid password")
     }
+    s.recordClick(link, alias, client)
     return toLinkView(link), nil
 }
 

@@ -38,22 +38,24 @@ func TestMain(m *testing.M) {
 }
 
 type testEnv struct {
-	auth   *fakeAuth
-	link   *fakeLink
-	google *handler.GoogleOAuth
-	checks map[string]handler.CheckFunc
+	auth      *fakeAuth
+	link      *fakeLink
+	analytics *fakeAnalytics
+	google    *handler.GoogleOAuth
+	checks    map[string]handler.CheckFunc
 }
 
 func newEnv() *testEnv {
 	return &testEnv{
-		auth:   &fakeAuth{},
-		link:   &fakeLink{},
-		google: handler.NewGoogleOAuth("", "", ""), // OAuth nonaktif secara default
-		checks: map[string]handler.CheckFunc{},
+		auth:      &fakeAuth{},
+		link:      &fakeLink{},
+		analytics: &fakeAnalytics{},
+		google:    handler.NewGoogleOAuth("", "", ""), // OAuth nonaktif secara default
+		checks:    map[string]handler.CheckFunc{},
 	}
 }
 
-func (e *testEnv) do(t *testing.T, method, path, body string, opts ...func(*http.Request)) *httptest.ResponseRecorder {
+func (e *testEnv) engine(t *testing.T) *gin.Engine {
 	t.Helper()
 	cookies := handler.CookieConfig{Secure: true, AccessTokenTTL: 15 * time.Minute, RefreshTokenTTL: 7 * 24 * time.Hour}
 	engine, err := router.New(router.Handlers{
@@ -61,11 +63,18 @@ func (e *testEnv) do(t *testing.T, method, path, body string, opts ...func(*http
 		Link:      handler.NewLinkHandler(e.link, baseURL),
 		Redirect:  handler.NewRedirectHandler(e.link),
 		Health:    handler.NewHealthHandler(e.checks),
+		Analytics: handler.NewAnalyticsHandler(e.analytics, e.link, e.auth, []string{frontendURL}),
 		Validator: e.auth,
 	}, router.Options{CORSOrigins: []string{frontendURL}})
 	if err != nil {
 		t.Fatal(err)
 	}
+	return engine
+}
+
+func (e *testEnv) do(t *testing.T, method, path, body string, opts ...func(*http.Request)) *httptest.ResponseRecorder {
+	t.Helper()
+	engine := e.engine(t)
 
 	var reader io.Reader
 	if body != "" {
@@ -613,6 +622,28 @@ func TestVerifyPassword_InvalidResultWithoutError(t *testing.T) {
 	assertError(t, w, 401, "UNAUTHORIZED")
 	if strings.Contains(w.Body.String(), "secret.com") {
 		t.Error("destination leaked on invalid password")
+	}
+}
+
+func TestRedirect_ForwardsClientInfoForAnalytics(t *testing.T) {
+	env := newEnv()
+	var md metadata.MD
+	env.link.resolveAlias = func(ctx context.Context, _ *linkpb.ResolveAliasRequest) (*linkpb.ResolveAliasResponse, error) {
+		md, _ = metadata.FromOutgoingContext(ctx)
+		return &linkpb.ResolveAliasResponse{OriginalUrl: "https://example.com"}, nil
+	}
+
+	env.do(t, "GET", "/promo", "", func(r *http.Request) {
+		r.Header.Set("User-Agent", "Mozilla/5.0 (iPhone)")
+		r.Header.Set("Referer", "https://twitter.com/")
+		r.RemoteAddr = "203.0.113.7:51234"
+	})
+
+	want := map[string]string{"x-forwarded-for": "203.0.113.7", "x-user-agent": "Mozilla/5.0 (iPhone)", "x-referer": "https://twitter.com/"}
+	for key, val := range want {
+		if got := md.Get(key); len(got) == 0 || got[0] != val {
+			t.Errorf("metadata %s = %v, want %q", key, got, val)
+		}
 	}
 }
 

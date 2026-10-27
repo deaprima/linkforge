@@ -1,7 +1,9 @@
 package router
 
 import (
+	"fmt"
 	"net/http"
+	"net/url"
 	"reflect"
 	"strings"
 	"time"
@@ -20,6 +22,7 @@ type Handlers struct {
 	Link      *handler.LinkHandler
 	Redirect  *handler.RedirectHandler
 	Health    *handler.HealthHandler
+	Analytics *handler.AnalyticsHandler
 	Validator middleware.CredentialValidator
 }
 
@@ -32,7 +35,7 @@ func New(h Handlers, opts Options) (*gin.Engine, error) {
 	registerJSONTagNames()
 
 	r := gin.New()
-	r.Use(gin.Logger(), gin.Recovery())
+	r.Use(gin.LoggerWithFormatter(logFormatter), gin.Recovery())
 	if err := r.SetTrustedProxies(opts.TrustedProxies); err != nil {
 		return nil, err
 	}
@@ -76,6 +79,13 @@ func New(h Handlers, opts Options) (*gin.Engine, error) {
 	links.PUT("/:id", h.Link.Update)
 	links.DELETE("/:id", h.Link.Delete)
 
+	// Analytics: Bearer token atau API key; WebSocket memvalidasi token sendiri (bisa via query param)
+	analytics := api.Group("/analytics")
+	analytics.GET("/realtime", h.Analytics.Realtime)
+	stats := analytics.Group("", middleware.RequireAuth(h.Validator, true))
+	stats.GET("/summary", h.Analytics.Summary)
+	stats.GET("/links/:id", h.Analytics.LinkStats)
+
 	// Redirect publik dari root — route static di atas tetap diprioritaskan oleh Gin
 	r.GET("/:alias", h.Redirect.Resolve)
 	r.POST("/:alias/verify", h.Redirect.Verify)
@@ -100,4 +110,42 @@ func registerJSONTagNames() {
 		}
 		return name
 	})
+}
+
+// sensitiveQueryParams tidak boleh muncul di access log (mis. ?token= di WebSocket realtime).
+var sensitiveQueryParams = []string{"token", "code", "state"}
+
+// logFormatter = format default gin, tapi query sensitif di-redact.
+func logFormatter(p gin.LogFormatterParams) string {
+	return fmt.Sprintf("[GIN] %v | %3d | %13v | %15s | %-7s %#v\n%s",
+		p.TimeStamp.Format("2006/01/02 - 15:04:05"),
+		p.StatusCode,
+		p.Latency,
+		p.ClientIP,
+		p.Method,
+		redactQuery(p.Path),
+		p.ErrorMessage,
+	)
+}
+
+func redactQuery(path string) string {
+	base, rawQuery, found := strings.Cut(path, "?")
+	if !found {
+		return path
+	}
+	query, err := url.ParseQuery(rawQuery)
+	if err != nil {
+		return base + "?REDACTED"
+	}
+	redacted := false
+	for _, key := range sensitiveQueryParams {
+		if query.Has(key) {
+			query.Set(key, "REDACTED")
+			redacted = true
+		}
+	}
+	if !redacted {
+		return path
+	}
+	return base + "?" + query.Encode()
 }

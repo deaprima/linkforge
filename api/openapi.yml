@@ -832,6 +832,9 @@ paths:
                             items:
                               type: object
                               properties:
+                                link_id:
+                                  type: string
+                                  format: uuid
                                 alias:
                                   type: string
                                 clicks:
@@ -929,6 +932,8 @@ paths:
                                   format: date
                                 clicks:
                                   type: integer
+        '400':
+          description: Format tanggal tidak valid, `from` setelah `to`, atau rentang lebih dari 366 hari.
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -942,18 +947,24 @@ paths:
       summary: WebSocket stream untuk event klik realtime (v1.5)
       description: |
         Membuka koneksi WebSocket untuk mendengarkan event klik secara realtime.
-        Token autentikasi harus dikirimkan via query parameter `token`.
+        Access token (JWT) dikirim via query `token`, cookie `access_token`, atau header
+        `Authorization: Bearer`. API Key tidak berlaku. Origin browser harus termasuk
+        CORS_ALLOWED_ORIGINS. Server mengirim ping tiap 30 detik.
       operationId: getRealtimeAnalytics
       parameters:
         - name: token
           in: query
-          required: true
-          description: Access token (JWT) untuk autentikasi.
+          required: false
+          description: Access token (JWT). Di-redact dari access log Gateway.
           schema:
             type: string
       responses:
         '101':
           description: Koneksi berhasil diupgrade ke WebSocket.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Origin tidak diizinkan.
 
   # Redirects (Served at Root)
   /{alias}:
