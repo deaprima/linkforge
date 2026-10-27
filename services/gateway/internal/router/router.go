@@ -1,6 +1,7 @@
 package router
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -24,6 +25,9 @@ type Handlers struct {
 	Health    *handler.HealthHandler
 	Analytics *handler.AnalyticsHandler
 	Validator middleware.CredentialValidator
+
+	// VerifyRateLimit wajib diisi: POST /:alias/verify tanpa brute-force protection tidak boleh jalan
+	VerifyRateLimit gin.HandlerFunc
 }
 
 type Options struct {
@@ -32,6 +36,9 @@ type Options struct {
 }
 
 func New(h Handlers, opts Options) (*gin.Engine, error) {
+	if h.VerifyRateLimit == nil {
+		return nil, errors.New("router: VerifyRateLimit middleware is required")
+	}
 	registerJSONTagNames()
 
 	r := gin.New()
@@ -44,7 +51,7 @@ func New(h Handlers, opts Options) (*gin.Engine, error) {
 		AllowOrigins:     opts.CORSOrigins,
 		AllowMethods:     []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodOptions},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-API-Key"},
-		ExposeHeaders:    []string{"X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"},
+		ExposeHeaders:    []string{"X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset", "Retry-After"},
 		AllowCredentials: true, // dibutuhkan untuk cookie hasil OAuth
 		MaxAge:           12 * time.Hour,
 	}))
@@ -78,6 +85,7 @@ func New(h Handlers, opts Options) (*gin.Engine, error) {
 	links.GET("/:id", h.Link.Get)
 	links.PUT("/:id", h.Link.Update)
 	links.DELETE("/:id", h.Link.Delete)
+	links.GET("/:id/qr", h.Link.QR)
 
 	// Analytics: Bearer token atau API key; WebSocket memvalidasi token sendiri (bisa via query param)
 	analytics := api.Group("/analytics")
@@ -88,7 +96,7 @@ func New(h Handlers, opts Options) (*gin.Engine, error) {
 
 	// Redirect publik dari root — route static di atas tetap diprioritaskan oleh Gin
 	r.GET("/:alias", h.Redirect.Resolve)
-	r.POST("/:alias/verify", h.Redirect.Verify)
+	r.POST("/:alias/verify", h.VerifyRateLimit, h.Redirect.Verify)
 
 	r.NoRoute(func(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, response.CodeNotFound, "Route not found.")

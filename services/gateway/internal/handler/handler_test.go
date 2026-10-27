@@ -13,13 +13,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alicebob/miniredis/v2"
 	"github.com/deaprima/linkforge/services/gateway/internal/handler"
+	"github.com/deaprima/linkforge/services/gateway/internal/ratelimit"
 	"github.com/deaprima/linkforge/services/gateway/internal/response"
 	"github.com/deaprima/linkforge/services/gateway/internal/router"
 	"github.com/deaprima/linkforge/services/shared/breaker"
 	authpb "github.com/deaprima/linkforge/services/shared/proto/auth"
 	linkpb "github.com/deaprima/linkforge/services/shared/proto/link"
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -43,10 +46,20 @@ type testEnv struct {
 	analytics *fakeAnalytics
 	google    *handler.GoogleOAuth
 	checks    map[string]handler.CheckFunc
+	redis     *miniredis.Miniredis // state rate limiter, satu per env
+	redisAddr string               // disimpan terpisah: Addr() tidak bisa dipanggil setelah Close()
 }
 
 func newEnv() *testEnv {
+	// Tidak memakai miniredis.RunT: env sering dipakai lintas subtest, sedangkan RunT
+	// menutup server saat subtest pertama selesai.
+	mr, err := miniredis.Run()
+	if err != nil {
+		panic(err)
+	}
 	return &testEnv{
+		redis:     mr,
+		redisAddr: mr.Addr(),
 		auth:      &fakeAuth{},
 		link:      &fakeLink{},
 		analytics: &fakeAnalytics{},
@@ -57,6 +70,12 @@ func newEnv() *testEnv {
 
 func (e *testEnv) engine(t *testing.T) *gin.Engine {
 	t.Helper()
+	rdb := redis.NewClient(&redis.Options{Addr: e.redisAddr})
+	t.Cleanup(func() { rdb.Close() })
+	// Batas produksi: 5/15 menit per IP+alias, 20/15 menit per IP, fail-closed
+	verifyLimit := ratelimit.Middleware(ratelimit.NewRedisLimiter(rdb, "rl:"),
+		ratelimit.VerifyPasswordRules(5, 20, 15*time.Minute), ratelimit.Options{Message: "Too many password attempts. Try again later."})
+
 	cookies := handler.CookieConfig{Secure: true, AccessTokenTTL: 15 * time.Minute, RefreshTokenTTL: 7 * 24 * time.Hour}
 	engine, err := router.New(router.Handlers{
 		Auth:      handler.NewAuthHandler(e.auth, e.google, cookies, frontendURL),
@@ -64,7 +83,8 @@ func (e *testEnv) engine(t *testing.T) *gin.Engine {
 		Redirect:  handler.NewRedirectHandler(e.link),
 		Health:    handler.NewHealthHandler(e.checks),
 		Analytics: handler.NewAnalyticsHandler(e.analytics, e.link, e.auth, []string{frontendURL}),
-		Validator: e.auth,
+		Validator:       e.auth,
+		VerifyRateLimit: verifyLimit,
 	}, router.Options{CORSOrigins: []string{frontendURL}})
 	if err != nil {
 		t.Fatal(err)

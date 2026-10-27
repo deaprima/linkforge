@@ -13,6 +13,7 @@ import (
 	"github.com/deaprima/linkforge/services/gateway/internal/client"
 	"github.com/deaprima/linkforge/services/gateway/internal/config"
 	"github.com/deaprima/linkforge/services/gateway/internal/handler"
+	"github.com/deaprima/linkforge/services/gateway/internal/ratelimit"
 	"github.com/deaprima/linkforge/services/gateway/internal/router"
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
@@ -46,9 +47,10 @@ func main() {
 	}
 	defer analyticsClient.Close()
 
-	// Redis (sekarang untuk readiness, nanti untuk rate limiting di Fase 3)
+	// Redis: state rate limiter (+ readiness)
 	rdb := redis.NewClient(&redis.Options{Addr: cfg.RedisAddr})
 	defer rdb.Close()
+	limiter := ratelimit.NewRedisLimiter(rdb, "linkforge:rl:")
 
 	// Dependency injection
 	cookies := handler.CookieConfig{
@@ -73,6 +75,10 @@ func main() {
 		}),
 		Analytics: handler.NewAnalyticsHandler(analyticsClient, linkClient, authClient, cfg.CORSOrigins),
 		Validator: authClient,
+		// Fail-closed: kalau Redis mati, verifikasi password ditolak (brute-force tidak boleh lolos)
+		VerifyRateLimit: ratelimit.Middleware(limiter,
+			ratelimit.VerifyPasswordRules(cfg.VerifyLimitPerAlias, cfg.VerifyLimitPerIP, cfg.VerifyLimitWindow),
+			ratelimit.Options{Message: "Too many password attempts. Try again later."}),
 	}, router.Options{
 		CORSOrigins:    cfg.CORSOrigins,
 		TrustedProxies: cfg.TrustedProxies,
