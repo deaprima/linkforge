@@ -46,6 +46,10 @@ func mapError(err error) error {
     switch {
     case strings.Contains(msg, "not found"):
         return status.Error(codes.NotFound, msg)
+    case strings.Contains(msg, "has expired"):
+        return status.Error(codes.FailedPrecondition, msg)
+    case strings.Contains(msg, "not password protected"):
+        return status.Error(codes.InvalidArgument, msg)
     case strings.Contains(msg, "is blocked"),
         strings.Contains(msg, "invalid url"),
         strings.Contains(msg, "cannot be empty"),

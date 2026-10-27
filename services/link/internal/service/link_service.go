@@ -322,6 +322,9 @@ func (s *linkService) VerifyLinkPassword(ctx context.Context, alias, password st
     if link == nil {
         return nil, errors.New("link not found")
     }
+    if link.ExpiredAt != nil && time.Now().After(*link.ExpiredAt) {
+        return nil, errors.New("link has expired")
+    }
     if link.PasswordHash == nil {
         return nil, errors.New("link is not password protected")
     }
@@ -341,7 +344,7 @@ func validateCustomAlias(alias string) error {
         return errors.New("alias hanya boleh huruf, angka, tanda hubung (-) dan underscore (_), panjang 3-64 karakter")
     }
     // Reserved words yang tidak boleh dipakai sebagai alias
-    reserved := []string{"api", "admin", "login", "register", "health", "metrics"}
+    reserved := []string{"api", "admin", "login", "register", "health", "healthz", "readyz", "metrics"}
     for _, r := range reserved {
         if strings.EqualFold(alias, r) {
             return fmt.Errorf("alias '%s' is reserved", alias)
