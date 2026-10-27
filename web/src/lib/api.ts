@@ -9,18 +9,31 @@ export const API_PREFIX = "/api/v1";
 
 export type Meta = { page: number; limit: number; total: number };
 
+/** Header X-RateLimit-* dari Gateway (hanya ada di endpoint yang di-rate-limit). */
+export type RateLimit = { limit: number; remaining: number; reset: Date };
+
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
   readonly retryAfter?: number;
+  readonly rateLimit?: RateLimit;
 
-  constructor(status: number, code: string, message: string, retryAfter?: number) {
+  constructor(status: number, code: string, message: string, retryAfter?: number, rateLimit?: RateLimit) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
     this.retryAfter = retryAfter;
+    this.rateLimit = rateLimit;
   }
+}
+
+function readRateLimit(res: Response): RateLimit | undefined {
+  const limit = res.headers.get("X-RateLimit-Limit");
+  const remaining = res.headers.get("X-RateLimit-Remaining");
+  const reset = res.headers.get("X-RateLimit-Reset");
+  if (limit === null || remaining === null || reset === null) return undefined;
+  return { limit: Number(limit), remaining: Number(remaining), reset: new Date(Number(reset) * 1000) };
 }
 
 type Envelope<T> =
@@ -33,6 +46,8 @@ type RequestOptions = {
   /** Jangan mencoba refresh saat 401 (dipakai oleh endpoint auth itu sendiri). */
   noRefresh?: boolean;
   signal?: AbortSignal;
+  /** Default API_PREFIX; "" untuk endpoint publik di root (mis. POST /:alias/verify). */
+  prefix?: string;
 };
 
 // Minta Gateway tidak pernah menaruh token di body JSON (lihat API-CONTRACT.md "Mode cookie-only")
@@ -53,7 +68,7 @@ function refreshSession(): Promise<boolean> {
 
 async function send(path: string, opts: RequestOptions): Promise<Response> {
   const hasBody = opts.body !== undefined;
-  return fetch(`${API_PREFIX}${path}`, {
+  return fetch(`${opts.prefix ?? API_PREFIX}${path}`, {
     method: opts.method ?? "GET",
     credentials: "same-origin",
     headers: hasBody ? { ...SESSION_HEADERS, "Content-Type": "application/json" } : SESSION_HEADERS,
@@ -64,13 +79,14 @@ async function send(path: string, opts: RequestOptions): Promise<Response> {
 
 async function toError(res: Response): Promise<ApiError> {
   const retryAfter = Number(res.headers.get("Retry-After")) || undefined;
+  const rateLimit = readRateLimit(res);
   try {
     const body = (await res.json()) as Envelope<unknown>;
-    if (!body.success) return new ApiError(res.status, body.error.code, body.error.message, retryAfter);
+    if (!body.success) return new ApiError(res.status, body.error.code, body.error.message, retryAfter, rateLimit);
   } catch {
     /* body bukan JSON (mis. proxy error) */
   }
-  return new ApiError(res.status, res.status >= 500 ? "SERVICE_UNAVAILABLE" : "UNKNOWN", res.statusText || "Request failed", retryAfter);
+  return new ApiError(res.status, res.status >= 500 ? "SERVICE_UNAVAILABLE" : "UNKNOWN", res.statusText || "Request failed", retryAfter, rateLimit);
 }
 
 export async function requestWithMeta<T>(path: string, opts: RequestOptions = {}): Promise<{ data: T; meta?: Meta }> {

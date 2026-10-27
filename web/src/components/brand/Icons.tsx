@@ -5,6 +5,8 @@ import copyDark from "@/assets/brand/icon-copy-dark.svg";
 import copyLight from "@/assets/brand/icon-copy-light.svg";
 import lockDark from "@/assets/brand/icon-lock-dark.svg";
 import lockLight from "@/assets/brand/icon-lock-light.svg";
+import lockLgDark from "@/assets/brand/icon-lock-lg-dark.svg";
+import lockLgLight from "@/assets/brand/icon-lock-lg-light.svg";
 import moreDark from "@/assets/brand/icon-more-dark.svg";
 import moreLight from "@/assets/brand/icon-more-light.svg";
 import dotDark from "@/assets/brand/status-dot-dark.svg";
@@ -26,6 +28,8 @@ function Themed({ light, dark, className }: { light: string; dark: string; class
 
 export const CopyIcon = ({ className }: { className?: string }) => <Themed light={copyLight} dark={copyDark} className={cn("size-4", className)} />;
 export const MoreIcon = ({ className }: { className?: string }) => <Themed light={moreLight} dark={moreDark} className={cn("size-5", className)} />;
-export const LockIcon = ({ className }: { className?: string }) => <Themed light={lockLight} dark={lockDark} className={cn("size-3.5", className)} />;
+/** Gembok 40px untuk password gate (Figma 19:651), beda gambar dari LockIcon kecil. */
+export const LockIconLarge = ({ className }: { className?: string }) => <Themed light={lockLgLight} dark={lockLgDark} className={cn("size-10", className)} />;
+export const LockIcon =({ className }: { className?: string }) => <Themed light={lockLight} dark={lockDark} className={cn("size-3.5", className)} />;
 export const StatusDot = ({ className }: { className?: string }) => <Themed light={dotLight} dark={dotDark} className={cn("size-2", className)} />;
 export const CloseIcon = ({ className }: { className?: string }) => <Themed light={closeLight} dark={closeDark} className={cn("size-5", className)} />;

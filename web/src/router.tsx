@@ -9,12 +9,13 @@ import { OverviewPage } from "@/pages/app/OverviewPage";
 import { ProfilePage } from "@/pages/app/ProfilePage";
 import { RegisterPage, SignInPage } from "@/pages/auth/AuthPages";
 import { PendingPage } from "@/pages/PendingPage";
+import { ExpiredPage, NotFoundPage, PasswordGatePage, UnavailablePage } from "@/pages/public/PublicPages";
 
 /*
  * Routing web app (lihat API-CONTRACT.md "Routing web app"):
  *   /            landing page
  *   /app/*       halaman aplikasi (short link hidup di root, jadi app tidak boleh di root)
- * Path /app/login, /app/dashboard, /app/p/:alias, /app/not-found, /app/expired dipakai Gateway
+ * Path /app/login, /app/dashboard, /app/p/:alias, /app/not-found, /app/expired, /app/unavailable dipakai Gateway
  * sebagai target redirect — jangan diganti tanpa mengubah gateway/internal/handler/webpaths.go.
  */
 export const router = createBrowserRouter([
@@ -34,8 +35,9 @@ export const router = createBrowserRouter([
       { path: "/app/profile", element: <ProfilePage /> },
     ],
   },
-  { path: "/app/p/:alias", element: <PendingPage title="Password gate" /> },
-  { path: "/app/not-found", element: <PendingPage title="404" /> },
-  { path: "/app/expired", element: <PendingPage title="410" /> },
-  { path: "*", element: <PendingPage title="404" /> },
+  { path: "/app/p/:alias", element: <PasswordGatePage /> },
+  { path: "/app/not-found", element: <NotFoundPage /> },
+  { path: "/app/expired", element: <ExpiredPage /> },
+  { path: "/app/unavailable", element: <UnavailablePage /> },
+  { path: "*", element: <NotFoundPage /> },
 ]);

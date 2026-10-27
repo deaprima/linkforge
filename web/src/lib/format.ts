@@ -28,3 +28,12 @@ export function isExpired(expiredAt: string | null, now = Date.now()): boolean {
 
 const deviceLabel: Record<string, string> = { mobile: "Mobile", desktop: "Desktop", tablet: "Tablet", bot: "Bot" };
 export const formatDevice = (d: string) => deviceLabel[d] ?? d;
+
+/**
+ * Origin short link, mis. "https://linkforge.deaprima.my.id". Di produksi short link & web app satu
+ * domain; saat dev short link hidup di Gateway (VITE_SHORT_URL_BASE, lihat .env.development).
+ */
+export function shortLinkBase(): string {
+  const base = import.meta.env.VITE_SHORT_URL_BASE as string | undefined;
+  return (base ?? window.location.origin).replace(/\/$/, "");
+}

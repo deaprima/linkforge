@@ -6,6 +6,7 @@ import { FormError } from "@/components/layout/AuthLayout";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button, Field } from "@/components/ui/primitives";
 import { ApiError, request, type Link } from "@/lib/api";
+import { shortLinkBase } from "@/lib/format";
 
 /*
  * Modal "New link" (Figma 17:672) — juga dipakai untuk edit.
@@ -14,14 +15,10 @@ import { ApiError, request, type Link } from "@/lib/api";
 
 const ALIAS_RE = /^[a-zA-Z0-9_-]{3,64}$/;
 
-/**
- * Prefix alias = host short link, mis. "linkforge.deaprima.my.id/". Di produksi short link & web app
- * satu domain; saat dev short link hidup di Gateway (VITE_SHORT_URL_BASE, lihat .env.development).
- */
+/** Prefix alias = host short link, mis. "linkforge.deaprima.my.id/". */
 function shortHost(link?: Link): string {
   if (link) return link.short_url.replace(/^https?:\/\//, "").replace(/[^/]+$/, "");
-  const base = import.meta.env.VITE_SHORT_URL_BASE as string | undefined;
-  return `${(base ?? window.location.origin).replace(/^https?:\/\//, "").replace(/\/$/, "")}/`;
+  return `${shortLinkBase().replace(/^https?:\/\//, "")}/`;
 }
 
 /** <input type="date"> → akhir hari itu (waktu lokal) dalam ISO, supaya link berlaku sepanjang tanggal tsb. */

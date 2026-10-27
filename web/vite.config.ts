@@ -15,6 +15,8 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api": { target: GATEWAY, changeOrigin: true, ws: true },
+      // Verifikasi password link hidup di root Gateway (POST /:alias/verify), bukan di /api
+      "^/[A-Za-z0-9_-]+/verify$": { target: GATEWAY, changeOrigin: true },
     },
   },
 });
