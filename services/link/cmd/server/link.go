@@ -16,6 +16,8 @@ import (
     pb "github.com/deaprima/linkforge/services/shared/proto/link"
     "github.com/joho/godotenv"
     "google.golang.org/grpc"
+    "google.golang.org/grpc/health"
+    healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 func main() {
@@ -58,6 +60,10 @@ func main() {
     grpcServer := grpc.NewServer()
     pb.RegisterLinkServiceServer(grpcServer, linkHandler)
 
+    // Standard gRPC health check, dipakai Gateway untuk /readyz
+    healthServer := health.NewServer()
+    healthpb.RegisterHealthServer(grpcServer, healthServer)
+
     go func() {
         log.Printf("Link Service gRPC server running on port %s...", cfg.GRPCPort)
         if err := grpcServer.Serve(lis); err != nil {
@@ -71,6 +77,7 @@ func main() {
     <-stop
 
     log.Println("Shutting down Link Service gracefully...")
+    healthServer.Shutdown()
     grpcServer.GracefulStop()
     log.Println("Link Service stopped.")
 }

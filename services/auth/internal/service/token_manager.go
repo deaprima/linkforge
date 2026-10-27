@@ -44,7 +44,7 @@ func (m *tokenManager) GenerateAccessToken(userID uuid.UUID, email string)(strin
 		},
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(m.secretKey)
 }
 

@@ -15,7 +15,9 @@ import (
 	"github.com/deaprima/linkforge/services/shared/database"
 	pb "github.com/deaprima/linkforge/services/shared/proto/auth"
 	"github.com/joho/godotenv"
-	"google.golang.org/grpc" 
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 func main(){
@@ -65,6 +67,10 @@ func main(){
 
 	pb.RegisterAuthServiceServer(grpcServer, authHandler)
 
+	// Standard gRPC health check, dipakai Gateway untuk /readyz
+	healthServer := health.NewServer()
+	healthpb.RegisterHealthServer(grpcServer, healthServer)
+
 	go func() {
 		log.Printf("gRPC server is running on port %s...", cfg.GRPCPort)
 		if err := grpcServer.Serve(lis); err != nil {
@@ -78,6 +84,7 @@ func main(){
 	<-stop
 
 	log.Printf("Shutting down gRPC server gracefully...")
+	healthServer.Shutdown()
 	grpcServer.GracefulStop()
 
 	log.Printf("Auth Service stoped.")

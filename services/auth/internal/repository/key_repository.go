@@ -66,9 +66,16 @@ func (r *apiKeyRepository) ListByUserID(ctx context.Context, userID uuid.UUID) (
 }
 
 func (r *apiKeyRepository) Revoke(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
-	return r.db.WithContext(ctx).Model(&entity.ApiKey{}).
-		Where("id = ? AND user_id = ?", id, userID).
-		Update("revoked_at", time.Now()).Error
+	res := r.db.WithContext(ctx).Model(&entity.ApiKey{}).
+		Where("id = ? AND user_id = ? AND revoked_at IS NULL", id, userID).
+		Update("revoked_at", time.Now())
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return errors.New("api key not found")
+	}
+	return nil
 }
 
 func (r *apiKeyRepository) UpdateLastUsed(ctx context.Context, id uuid.UUID) error {
