@@ -112,10 +112,14 @@ func (h *AuthHandler) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequ
 
 	tokens, err := h.authService.RefreshToken(ctx, req.GetRefreshToken(), ip, userAgent)
 	if err != nil {
-		if err.Error() == "refresh token abuse detected; all sessions revoked" {
+		switch err.Error() {
+		case "refresh token abuse detected; all sessions revoked":
 			return nil, status.Error(codes.PermissionDenied, err.Error())
+		case "invalid refresh token", "refresh token expired", "user not found":
+			return nil, status.Error(codes.Unauthenticated, err.Error())
 		}
-		return nil, status.Error(codes.Unauthenticated, err.Error())
+		// Error infrastruktur (mis. DB down) tidak boleh jadi 401 — client akan menganggap sesinya habis
+		return nil, status.Errorf(codes.Internal, "failed to refresh token: %v", err)
 	}
 
 	return &pb.RefreshTokenResponse{
@@ -129,7 +133,10 @@ func (h *AuthHandler) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequ
 func (h *AuthHandler) Logout(ctx context.Context, req *pb.LogoutRequest) (*pb.LogoutResponse, error) {
 	err := h.authService.Logout(ctx, req.GetRefreshToken())
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "failed to logout: %v", err)
+		if err.Error() == "invalid refresh token" {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		return nil, status.Errorf(codes.Internal, "failed to logout: %v", err)
 	}
 
 	return &pb.LogoutResponse{

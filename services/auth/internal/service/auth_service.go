@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/deaprima/linkforge/services/auth/internal/entity"
@@ -58,6 +59,9 @@ type authService struct {
 	googleClientID string
 	tokenManager TokenManager
 	refreshDur   time.Duration
+
+	// verifyIDToken = idtoken.Validate; bisa diganti di unit test supaya tidak memanggil Google
+	verifyIDToken func(ctx context.Context, idToken, audience string) (*idtoken.Payload, error)
 }
 
 func NewAuthService(
@@ -77,11 +81,19 @@ func NewAuthService(
 		googleClientID: googleClientID,
 		tokenManager: tokenManager,
 		refreshDur:   refreshDur,
+		verifyIDToken: idtoken.Validate,
 	}
+}
+
+// normalizeEmail membuat email case-insensitive supaya "Dea@x.com" dan "dea@x.com" adalah akun yang sama
+func normalizeEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
 }
 
 func (s *authService) Register(ctx context.Context, input RegisterInput)  (*entity.User, *TokenResult, error) {
 	
+	input.Email = normalizeEmail(input.Email)
+
 	// validasi email
 	existingUser, err := s.userRepo.GetByEmail(ctx, input.Email)
 	if err != nil {
@@ -118,7 +130,7 @@ func (s *authService) Register(ctx context.Context, input RegisterInput)  (*enti
 
 func (s *authService) Login(ctx context.Context, input LoginInput) (*entity.User, *TokenResult, error) {
 	// cari by email
-	user, err := s.userRepo.GetByEmail(ctx, input.Email)
+	user, err := s.userRepo.GetByEmail(ctx, normalizeEmail(input.Email))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -326,7 +338,7 @@ func (s *authService) ValidateApiKey(ctx context.Context, rawKey string) (*entit
 // GoogleAuth memverifikasi Google ID Token, lalu login/register user secara otomatis.
 func (s *authService) GoogleAuth(ctx context.Context, rawIDToken string) (*entity.User, *TokenResult, error) {
     // 1. Verifikasi ID Token ke Google
-    payload, err := idtoken.Validate(ctx, rawIDToken, s.googleClientID) 
+    payload, err := s.verifyIDToken(ctx, rawIDToken, s.googleClientID)
     if err != nil {
         return nil, nil, fmt.Errorf("invalid google id token: %w", err)
     }
@@ -334,10 +346,16 @@ func (s *authService) GoogleAuth(ctx context.Context, rawIDToken string) (*entit
     // 2. Ekstrak info user dari claims Google
     providerUserID := payload.Subject // Google UID (sub)
     email, _ := payload.Claims["email"].(string)
+    email = normalizeEmail(email)
     name, _ := payload.Claims["name"].(string)
 
     if email == "" {
         return nil, nil, errors.New("google account does not provide email")
+    }
+    // Wajib: tanpa ini, akun Google dengan email (non-Gmail) yang belum diverifikasi
+    // bisa ter-link ke akun LinkForge milik orang lain (account takeover via email linking)
+    if verified, _ := payload.Claims["email_verified"].(bool); !verified {
+        return nil, nil, errors.New("invalid google id token: email is not verified")
     }
 
     // 3. Cek apakah oauth_account sudah terdaftar

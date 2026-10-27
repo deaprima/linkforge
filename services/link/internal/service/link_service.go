@@ -243,6 +243,9 @@ func (s *linkService) UpdateLink(ctx context.Context, input UpdateLinkInput) (*L
 
     // Update alias jika disediakan
     if input.Alias != "" {
+        if err := validateCustomAlias(input.Alias); err != nil {
+            return nil, err
+        }
         link.CustomAlias = &input.Alias
     }
 
