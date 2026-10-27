@@ -425,7 +425,7 @@ paths:
           description: |
             Redirect ke FE dashboard. Token dikirim via HttpOnly Cookie:
             - `access_token`: HttpOnly; Secure; SameSite=Lax; Path=/
-            - `refresh_token`: HttpOnly; Secure; SameSite=Lax; Path=/api/v1/auth/refresh
+            - `refresh_token`: HttpOnly; Secure; SameSite=Lax; Path=/api/v1/auth
           headers:
             Set-Cookie:
               schema:
