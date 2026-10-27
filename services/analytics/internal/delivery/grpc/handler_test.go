@@ -76,6 +76,11 @@ func TestErrorMapping(t *testing.T) {
 		_, err = h.GetSummary(context.Background(), &pb.GetSummaryRequest{})
 		wantCode(t, err, tt.want)
 	}
+
+	_, err := NewAnalyticsHandler(&fakeService{err: tests[0].err}, realtime.NewHub()).GetLinkAnalytics(context.Background(), &pb.GetLinkAnalyticsRequest{})
+	if msg := status.Convert(err).Message(); msg != "from must not be after to" {
+		t.Errorf("client message = %q, internal sentinel prefix must be stripped", msg)
+	}
 }
 
 func TestGetSummary(t *testing.T) {

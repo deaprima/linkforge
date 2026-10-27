@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/deaprima/linkforge/services/analytics/internal/realtime"
@@ -25,7 +26,9 @@ func NewAnalyticsHandler(svc service.AnalyticsService, hub *realtime.Hub) *Analy
 
 func mapError(err error) error {
 	if errors.Is(err, service.ErrInvalidArgument) {
-		return status.Error(codes.InvalidArgument, err.Error())
+		// Pesan ke client tanpa prefix sentinel, mis. "from must not be after to"
+		msg := strings.TrimPrefix(err.Error(), service.ErrInvalidArgument.Error()+": ")
+		return status.Error(codes.InvalidArgument, msg)
 	}
 	return status.Errorf(codes.Internal, "internal error: %v", err)
 }
