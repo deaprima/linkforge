@@ -423,7 +423,7 @@ paths:
       responses:
         '302':
           description: |
-            Redirect ke FE dashboard. Token dikirim via HttpOnly Cookie:
+            Redirect ke `{FRONTEND_URL}/app/dashboard` (gagal: `/app/login?error=<reason>`). Token dikirim via HttpOnly Cookie:
             - `access_token`: HttpOnly; Secure; SameSite=Lax; Path=/
             - `refresh_token`: HttpOnly; Secure; SameSite=Lax; Path=/api/v1/auth
           headers:
@@ -979,7 +979,10 @@ paths:
         - url: http://localhost:8080
           description: Local Development Root
       summary: Redirect ke URL asli berdasarkan alias
-      description: Melakukan redirect temporary (302) ke URL asli atau meminta password jika dilindungi.
+      description: |
+        Redirect temporary (302) ke URL asli, atau meminta password jika dilindungi.
+        Untuk browser (`Accept: text/html`), respons non-redirect diganti 302 ke web app:
+        password → `/app/p/{alias}`, tidak ada → `/app/not-found?alias=`, expired → `/app/expired?alias=`.
       operationId: resolveRedirect
       parameters:
         - name: alias
