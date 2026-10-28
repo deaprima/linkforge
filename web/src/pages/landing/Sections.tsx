@@ -10,9 +10,9 @@ import { Themed } from "@/components/brand/Icons";
 import { Kliko } from "@/components/brand/Kliko";
 import { buttonClass, Chip } from "@/components/ui/primitives";
 import { Caption } from "@/pages/landing/Hero";
-import { API_SPEC_URL } from "@/pages/landing/links";
 
-const section = "px-gutter py-[72px]";
+// scroll-mt-20: anchor (#features) berhenti di bawah nav yang sticky (72px)
+const section = "scroll-mt-20 px-gutter py-[72px]";
 const h2 = "text-[44px] leading-[1.05] font-semibold tracking-[-1.1px] text-ink";
 
 // How it works (Figma 13:104)
@@ -125,9 +125,9 @@ export function Developers() {
         <p className="text-[17px] leading-[1.5] text-graphite">
           Create an API key in the dashboard and send it in the <code className="font-mono text-sm text-ink">X-API-Key</code> header. Each key is shown once, stored only as a hash, and can be revoked without touching your other keys.
         </p>
-        <a href={API_SPEC_URL} className={buttonClass({ variant: "outline" }, "mt-2")}>
+        <Link to="/app/docs" className={buttonClass({ variant: "outline" }, "mt-2")}>
           Read the API reference
-        </a>
+        </Link>
       </div>
       <div className="min-w-0 flex-1 overflow-x-auto border border-ink bg-paper p-6">
         <pre className="font-mono text-xs leading-[1.75] whitespace-pre text-ink">

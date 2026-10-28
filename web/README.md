@@ -1,54 +1,28 @@
-# React + TypeScript + Vite
+# LinkForge web app
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React 19 + TypeScript + Vite. Landing page, dashboard, password gate and error pages, auth pages (including password
+reset), and the API reference at `/app/docs`.
 
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+```bash
+npm install
+npm run dev        # http://localhost:5173, proxies /api to the Gateway on :8080
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+| Script | What it does |
+|---|---|
+| `npm run dev` | Dev server with hot reload |
+| `npm run build` | Typecheck, then production build into `dist/` |
+| `npm run lint` | ESLint |
+| `npm test` | Vitest (`npm run test:watch` to watch) |
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Notes
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
-```
+- **Routes:** the app lives under `/app/*` because short links own the root of the domain (`/:alias`). `/` is the landing page.
+- **Sessions:** the app never touches tokens in JavaScript. The Gateway sets HttpOnly cookies and the client sends
+  `X-Session-Mode: cookie` so tokens stay out of response bodies.
+- **API reference:** `src/pages/docs` renders `../api/openapi.yml` (parsed at build time by a small Vite plugin in
+  `vite.config.ts`). Edit the spec and the page follows.
+- **Config:** `VITE_SHORT_URL_BASE` is the origin short links are served from in dev; `VITE_SWAGGER_URL` adds a
+  "Try it in Swagger UI" button to the docs page. See `.env.development`.
+- **Theme and brand:** colour tokens, light and dark, live in `src/index.css`. Illustrations are exported from Figma;
+  Kliko (the mascot) is `src/components/brand/Kliko.tsx`.

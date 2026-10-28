@@ -6,11 +6,12 @@ import rulerDark from "@/assets/landing/ruler-dark.svg";
 import rulerLight from "@/assets/landing/ruler-light.svg";
 import rulerMobileDark from "@/assets/landing/ruler-m-dark.svg";
 import rulerMobileLight from "@/assets/landing/ruler-m-light.svg";
+import { BackToTop } from "@/components/BackToTop";
 import { Logo, ThemeToggle } from "@/components/brand/Brand";
 import { Themed } from "@/components/brand/Icons";
 import { buttonClass } from "@/components/ui/primitives";
 import { Hero } from "@/pages/landing/Hero";
-import { API_SPEC_URL, REPO_URL } from "@/pages/landing/links";
+import { REPO_URL } from "@/pages/landing/links";
 import { MobileCta, MobileDevelopers, MobileFeatures, MobileHero, MobileHowItWorks } from "@/pages/landing/Mobile";
 import { Cta, Developers, Features, HowItWorks } from "@/pages/landing/Sections";
 
@@ -30,7 +31,7 @@ const navLinks = [
 function Nav() {
   const [open, setOpen] = useState(false);
   return (
-    <div className="relative">
+    <div className="sticky top-0 z-30">
       <header className="flex h-[60px] items-center justify-between border-b border-ink bg-paper px-4 lg:h-[72px] lg:px-gutter">
         <Link to="/" aria-label="LinkForge home" className="focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-signal">
           <Logo />
@@ -41,6 +42,9 @@ function Nav() {
               {l.label}
             </a>
           ))}
+          <Link to="/app/docs" className="hover:underline">
+            Docs
+          </Link>
           <a href={REPO_URL} className="hover:underline">
             GitHub
           </a>
@@ -72,6 +76,9 @@ function Nav() {
               {l.label}
             </a>
           ))}
+          <Link to="/app/docs" className="text-[15px]">
+            Docs
+          </Link>
           <a href={REPO_URL} className="text-[15px]">
             GitHub
           </a>
@@ -154,9 +161,9 @@ function TitleBlock() {
           <a href={REPO_URL} className="hover:underline">
             GitHub
           </a>
-          <a href={API_SPEC_URL} className="hover:underline">
+          <Link to="/app/docs" className="hover:underline">
             API
-          </a>
+          </Link>
         </span>
       </TitleCell>
       <TitleCell label="Rev." className="lg:flex-[0.5]">
@@ -190,6 +197,7 @@ export function LandingPage() {
         <div className="px-4 pb-6 lg:px-gutter lg:pb-10">
           <TitleBlock />
         </div>
+        <BackToTop />
       </div>
     </div>
   );

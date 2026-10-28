@@ -22,7 +22,7 @@ import { REPO_URL } from "@/pages/landing/links";
  * yang hanya tampil di bawah breakpoint lg. Id anchor diberi akhiran "-m" supaya tidak bentrok dengan desktop.
  */
 
-const section = "px-4 pt-10 pb-10";
+const section = "scroll-mt-16 px-4 pt-10 pb-10";
 const h2 = "text-[32px] leading-[1.05] font-semibold tracking-[-0.8px] text-ink";
 const lede = "text-[15px] leading-[1.5] text-graphite";
 
@@ -169,6 +169,9 @@ export function MobileDevelopers() {
           </code>
         </pre>
       </div>
+      <Link to="/app/docs" className={buttonClass({ variant: "outline" }, "mt-4 w-full")}>
+        Read the API reference
+      </Link>
     </section>
   );
 }
