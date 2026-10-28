@@ -42,12 +42,18 @@ const authed = (Layout: ComponentType): ComponentType =>
 
 const publicPages = () => import("@/pages/public/PublicPages");
 const authPages = () => import("@/pages/auth/AuthPages");
+const resetPages = () => import("@/pages/auth/PasswordResetPages");
 
 export const router = createBrowserRouter([
   { path: "/", ...lazyPage(() => import("@/pages/landing/LandingPage"), (m) => m.LandingPage) },
   { path: "/app", element: <Navigate to="/app/dashboard" replace /> },
   { path: "/app/login", ...lazyPage(authPages, (m) => m.SignInPage, guest) },
   { path: "/app/register", ...lazyPage(authPages, (m) => m.RegisterPage, guest) },
+  // Dokumentasi publik: dibaca developer sebelum punya akun
+  { path: "/app/docs", ...lazyPage(() => import("@/pages/docs/DocsPage"), (m) => m.DocsPage) },
+  { path: "/app/forgot-password", ...lazyPage(resetPages, (m) => m.ForgotPasswordPage, guest) },
+  // Tanpa GuestOnly: link di email bisa dibuka di browser yang masih login; sesinya dicabut oleh reset itu sendiri
+  { path: "/app/reset-password", ...lazyPage(resetPages, (m) => m.ResetPasswordPage) },
   {
     ...lazyPage(() => import("@/components/layout/AppLayout"), (m) => m.AppLayout, authed),
     children: [

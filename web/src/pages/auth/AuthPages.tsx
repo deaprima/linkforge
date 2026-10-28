@@ -82,6 +82,9 @@ export function SignInPage() {
           onChange={(e) => setPassword(e.target.value)}
           error={fieldErrors.password}
         />
+        <Link to="/app/forgot-password" className="-mt-2 self-end text-[13px] font-semibold text-ink underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal">
+          Forgot password?
+        </Link>
         <Button type="submit" className="w-full" loading={login.isPending}>
           Sign in
         </Button>

@@ -42,6 +42,25 @@ export function useRegister() {
   });
 }
 
+/** Selalu sukses untuk email terdaftar maupun tidak (Gateway sengaja membalas sama). */
+export function useForgotPassword() {
+  return useMutation({
+    mutationFn: (input: { email: string }) => request<{ message: string }>("/auth/forgot-password", { method: "POST", body: input, noRefresh: true }),
+  });
+}
+
+export function useResetPassword() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { token: string; password: string }) => request<{ message: string }>("/auth/reset-password", { method: "POST", body: input, noRefresh: true }),
+    // Semua sesi dicabut di server; buang juga sisa data akun di cache
+    onSuccess: () => {
+      qc.setQueryData(ME_KEY, null);
+      qc.removeQueries({ predicate: (q) => q.queryKey[0] !== "me" });
+    },
+  });
+}
+
 export function useLogout() {
   const qc = useQueryClient();
   return useMutation({

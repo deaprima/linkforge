@@ -1,12 +1,13 @@
+import { cn } from "cn";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { GridBackground, Logo, ThemeToggle } from "@/components/brand/Brand";
 import { Kliko, type KlikoPose } from "@/components/brand/Kliko";
 
 /** Layout Sign in / Create account (Figma 19:465, 19:555): top bar + panel 440px dengan Kliko di tengah atasnya. */
-export function TopBar({ children }: { children?: ReactNode }) {
+export function TopBar({ children, className }: { children?: ReactNode; className?: string }) {
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between border-b border-ink bg-paper px-4 sm:px-10">
+    <header className={cn("flex h-16 shrink-0 items-center justify-between border-b border-ink bg-paper px-4 sm:px-10", className)}>
       <Link to="/" aria-label="LinkForge home" className="focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-signal">
         <Logo />
       </Link>
@@ -18,7 +19,7 @@ export function TopBar({ children }: { children?: ReactNode }) {
   );
 }
 
-export function AuthLayout({ pose, title, subtitle, footer, children }: { pose: KlikoPose; title: string; subtitle: string; footer: ReactNode; children: ReactNode }) {
+export function AuthLayout({ pose, title, subtitle, footer, children }: { pose: KlikoPose; title: string; subtitle: string; footer?: ReactNode; children: ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col">
       <GridBackground />
@@ -32,7 +33,7 @@ export function AuthLayout({ pose, title, subtitle, footer, children }: { pose: 
               <p className="text-sm leading-[1.45] text-graphite">{subtitle}</p>
             </div>
             <div className="flex flex-col gap-4 p-7">{children}</div>
-            <div className="flex items-start justify-center gap-1.5 border-t border-ink px-7 py-4 text-sm">{footer}</div>
+            {footer && <div className="flex items-start justify-center gap-1.5 border-t border-ink px-7 py-4 text-sm">{footer}</div>}
           </section>
         </div>
       </main>
