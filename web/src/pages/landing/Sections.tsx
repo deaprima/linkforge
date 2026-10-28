@@ -7,7 +7,7 @@ import qrLight from "@/assets/landing/qr-light.svg";
 import sparklineDark from "@/assets/landing/sparkline-dark.svg";
 import sparklineLight from "@/assets/landing/sparkline-light.svg";
 import { Themed } from "@/components/brand/Icons";
-import { MascotHero } from "@/components/brand/MascotHero";
+import { Kliko } from "@/components/brand/Kliko";
 import { buttonClass, Chip } from "@/components/ui/primitives";
 import { Caption } from "@/pages/landing/Hero";
 import { API_SPEC_URL } from "@/pages/landing/links";
@@ -163,7 +163,7 @@ export function Cta() {
     <section aria-labelledby="cta-title" className="px-gutter py-12">
       <div className="flex items-center justify-between gap-6 border border-ink bg-paper px-10 py-8">
       <div className="flex items-center gap-7">
-        <MascotHero className="size-[150px]" />
+        <Kliko pose="success" className="w-[150px]" />
         <div className="flex flex-col gap-2.5">
           <h2 id="cta-title" className="text-[40px] leading-[1.05] font-semibold tracking-[-1px] text-ink">
             Make your first short link

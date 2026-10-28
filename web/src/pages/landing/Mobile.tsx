@@ -11,7 +11,7 @@ import qrLight from "@/assets/landing/qr-light.svg";
 import sparklineDark from "@/assets/landing/sparkline-dark.svg";
 import sparklineLight from "@/assets/landing/sparkline-light.svg";
 import { Themed } from "@/components/brand/Icons";
-import { MascotHero } from "@/components/brand/MascotHero";
+import { Kliko } from "@/components/brand/Kliko";
 import { buttonClass, Chip } from "@/components/ui/primitives";
 import { Caption } from "@/pages/landing/Hero";
 import { REPO_URL } from "@/pages/landing/links";
@@ -66,7 +66,7 @@ export function MobileHero() {
         </figcaption>
       </figure>
 
-      <MascotHero className="mt-2 ml-auto size-[130px]" />
+      <Kliko pose="hero" className="mt-2 ml-auto w-[130px]" />
     </section>
   );
 }
@@ -177,7 +177,7 @@ export function MobileCta() {
   return (
     <section aria-labelledby="cta-title-m" className="px-4 py-10">
       <div className="flex flex-col items-center border border-ink bg-paper px-4 py-8 text-center">
-      <MascotHero className="size-[120px]" />
+      <Kliko pose="success" className="w-[120px]" />
       <h2 id="cta-title-m" className="mt-3 text-[30px] leading-[1.05] font-semibold tracking-[-0.75px] text-ink">
         Make your first short link
       </h2>

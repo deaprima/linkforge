@@ -58,6 +58,7 @@ export function SignInPage() {
 
   return (
     <AuthLayout
+      pose="hero"
       title="Sign in"
       subtitle="Welcome back. Your links are where you left them."
       footer={
@@ -118,6 +119,7 @@ export function RegisterPage() {
 
   return (
     <AuthLayout
+      pose="success"
       title="Create your account"
       subtitle="Free, no card needed. You can shorten links right away."
       footer={

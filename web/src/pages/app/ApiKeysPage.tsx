@@ -3,6 +3,7 @@ import { cn } from "cn";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 import { CloseIcon } from "@/components/brand/Icons";
+import { Kliko } from "@/components/brand/Kliko";
 import { PageHeader, PanelMessage } from "@/components/layout/AppLayout";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button, Field } from "@/components/ui/primitives";
@@ -16,6 +17,7 @@ function Modal({
   title,
   description,
   closable = true,
+  mascot,
   children,
   footer,
 }: {
@@ -24,6 +26,8 @@ function Modal({
   title: string;
   description: string;
   closable?: boolean;
+  /** Kliko yang bertengger di tepi atas modal (Figma "Where Kliko appears": API key created). */
+  mascot?: ReactNode;
   children: ReactNode;
   footer: ReactNode;
 }) {
@@ -35,6 +39,7 @@ function Modal({
         onEscapeKeyDown={(e) => !closable && e.preventDefault()}
         className="w-[calc(100%-2rem)] max-w-[560px] gap-0 border-ink p-0 shadow-none sm:max-w-[560px]"
       >
+        {mascot && <div className="pointer-events-none absolute right-6 bottom-full translate-y-[6.7%]">{mascot}</div>}
         <div className="flex items-center justify-between border-b border-ink px-6 py-4.5">
           <DialogTitle className="text-xl font-semibold tracking-[-0.2px] text-ink">{title}</DialogTitle>
           {closable && (
@@ -123,6 +128,7 @@ function KeyCreatedDialog({ created, onClose }: { created: CreatedApiKey | null;
       open={created !== null}
       onClose={onClose}
       closable={false}
+      mascot={<Kliko pose="key" className="w-[120px] sm:w-[150px]" />}
       title="Copy your new key"
       description="The full API key is shown only once."
       footer={

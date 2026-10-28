@@ -2,7 +2,7 @@ import { Link } from "react-router";
 import dimensionDark from "@/assets/landing/dimension-dark.svg";
 import dimensionLight from "@/assets/landing/dimension-light.svg";
 import { Themed } from "@/components/brand/Icons";
-import { MascotHero } from "@/components/brand/MascotHero";
+import { Kliko } from "@/components/brand/Kliko";
 import { buttonClass } from "@/components/ui/primitives";
 import { REPO_URL } from "@/pages/landing/links";
 
@@ -65,7 +65,7 @@ export function Hero() {
             <Caption fig={1}>Same destination, 48 characters shorter. Lines drawn to scale.</Caption>
           </figcaption>
         </div>
-        <MascotHero className="absolute top-[238px] right-[-4px] hidden size-[200px] min-[1440px]:block" />
+        <Kliko pose="hero" className="absolute top-[238px] right-[-4px] hidden w-[200px] min-[1440px]:block" />
       </figure>
     </section>
   );

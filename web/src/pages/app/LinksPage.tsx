@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Link as RouterLink, useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { CopyIcon, LockIcon, MoreIcon } from "@/components/brand/Icons";
+import { Kliko } from "@/components/brand/Kliko";
 import { PageHeader, PanelMessage } from "@/components/layout/AppLayout";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -134,7 +135,8 @@ export function LinksPage() {
         ) : links.isError ? (
           <PanelMessage tone="error">Couldn't load your links. {links.error.message}</PanelMessage>
         ) : rows.length === 0 ? (
-          <div className="flex flex-col items-center gap-4 px-5 py-14 text-center">
+          <div className="flex flex-col items-center gap-4 px-5 py-10 text-center">
+            <Kliko pose="empty" className="w-[160px]" />
             <p className="text-sm text-graphite">You haven't shortened anything yet.</p>
             <Button onClick={() => navigate("/app/links/new")}>Create your first link</Button>
           </div>

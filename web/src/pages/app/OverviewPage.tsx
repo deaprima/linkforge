@@ -3,6 +3,7 @@ import { cn } from "cn";
 import type { ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
 import { LiveClicks } from "@/components/LiveClicks";
+import { Kliko } from "@/components/brand/Kliko";
 import { PageHeader, Panel, PanelMessage } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/primitives";
 import { request, type Summary } from "@/lib/api";
@@ -21,7 +22,12 @@ function Readout({ label, children, last }: { label: string; children: ReactNode
 function TopLinks({ summary }: { summary: Summary }) {
   const max = summary.top_links[0]?.clicks ?? 0;
   if (summary.top_links.length === 0) {
-    return <PanelMessage>No clicks yet. Share a short link and it will show up here.</PanelMessage>;
+    return (
+      <div className="flex flex-col items-center px-5 pt-6">
+        <Kliko pose="chart" className="w-[160px]" />
+        <PanelMessage>No clicks yet. Share a short link and it will show up here.</PanelMessage>
+      </div>
+    );
   }
   return (
     <ol>

@@ -2,8 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { GridBackground } from "@/components/brand/Brand";
-import { ErrorMascot, type ErrorMascotKind } from "@/components/brand/ErrorMascot";
-import { LockIconLarge } from "@/components/brand/Icons";
+import { Kliko, type KlikoPose } from "@/components/brand/Kliko";
 import { FormError, TopBar } from "@/components/layout/AuthLayout";
 import { Button, ButtonLink, Field } from "@/components/ui/primitives";
 import { ApiError, request } from "@/lib/api";
@@ -37,14 +36,14 @@ function useAliasParam(): string | null {
 }
 
 /** Layar error (Figma 404 19:680, 410 19:752, 503 19:826): maskot 220px + kode + judul + teks + satu CTA. */
-function ErrorScreen({ mascot, code, title, children, action }: { mascot: ErrorMascotKind; code: string; title: string; children: ReactNode; action: ReactNode }) {
+function ErrorScreen({ mascot, code, title, children, action }: { mascot: KlikoPose; code: string; title: string; children: ReactNode; action: ReactNode }) {
   useEffect(() => {
     document.title = `${title} · LinkForge`;
   }, [title]);
   return (
     <PublicLayout>
       <div className="flex w-full max-w-[520px] flex-col items-center gap-4 text-center">
-        <ErrorMascot kind={mascot} className="size-[180px] sm:size-[220px]" />
+        <Kliko pose={mascot} className="w-[180px] sm:w-[220px]" />
         <p className="font-mono text-[13px] text-graphite">{code}</p>
         <h1 className="text-[30px] leading-[1.1] font-semibold tracking-[-0.72px] text-ink sm:text-4xl">{title}</h1>
         <p className="text-base leading-[1.5] text-graphite">{children}</p>
@@ -176,8 +175,9 @@ export function PasswordGatePage() {
 
   return (
     <PublicLayout>
-      <section className="flex w-full max-w-[440px] flex-col gap-4 border border-ink bg-paper p-6 sm:p-8">
-        <LockIconLarge />
+      <div className="flex w-full max-w-[440px] flex-col items-center">
+      <Kliko pose="lock" className="w-[170px]" />
+      <section className="flex w-full flex-col gap-4 border border-ink bg-paper p-6 sm:p-8">
         <h1 className="text-2xl font-semibold tracking-[-0.36px] text-ink">This link is password protected</h1>
         <p className="text-sm leading-[1.5] text-graphite">
           Enter the password you were given to open{" "}
@@ -206,6 +206,7 @@ export function PasswordGatePage() {
           </Button>
         </form>
       </section>
+      </div>
     </PublicLayout>
   );
 }
