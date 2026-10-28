@@ -25,4 +25,9 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    // Provider + hook, variant helper, dan utilitas tes memang berbagi file dengan komponen; hanya memengaruhi HMR
+    files: ['src/lib/**', 'src/components/ui/**', 'src/pages/app/LinksPage.tsx', 'src/test/**'],
+    rules: { 'react-refresh/only-export-components': 'off' },
+  },
 )
