@@ -21,15 +21,17 @@ const rangeFmtYear = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "
 function rangeDates(days: Range) {
   const to = new Date();
   const from = new Date(to.getTime() - (days - 1) * 86_400_000);
-  return { from: isoDay(from), to: isoDay(to), label: `${rangeFmt.format(from)} – ${rangeFmtYear.format(to)}` };
+  const sameMonth = from.getUTCMonth() === to.getUTCMonth() && from.getUTCFullYear() === to.getUTCFullYear();
+  const compact = sameMonth ? `${from.getUTCDate()}–${rangeFmt.format(to)}` : `${rangeFmt.format(from)} – ${rangeFmt.format(to)}`;
+  return { from: isoDay(from), to: isoDay(to), label: `${rangeFmt.format(from)} – ${rangeFmtYear.format(to)}`, compact };
 }
 
 /** Sel detail (Figma "Details"): label graphite 12px + nilai 14px. */
-function Detail({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
+function Detail({ label, children, className, wrap }: { label: string; children: ReactNode; className?: string; wrap?: boolean }) {
   return (
-    <div className={cn("flex min-w-0 flex-col gap-1 px-4.5 py-3.5", className)}>
+    <div className={cn("flex min-w-0 flex-col gap-1 px-4 py-3 md:px-4.5 md:py-3.5", className)}>
       <p className="text-xs text-graphite">{label}</p>
-      <div className="truncate text-sm text-ink">{children}</div>
+      <div className={cn("text-sm text-ink", wrap ? "break-words md:truncate" : "truncate")}>{children}</div>
     </div>
   );
 }
@@ -37,29 +39,47 @@ function Detail({ label, children, className }: { label: string; children: React
 function QrPanel({ link }: { link: Link }) {
   const [size, setSize] = useState<128 | 256 | 512>(256);
   const [format, setFormat] = useState<"png" | "svg">("png");
+  const [options, setOptions] = useState(false);
   const base = `${API_PREFIX}/links/${link.id}/qr`;
+  const download = (
+    <ButtonLink href={`${base}?size=${size}&format=${format}`} download={`${link.alias}-${size}.${format}`} className="w-full">
+      Download {format.toUpperCase()}
+    </ButtonLink>
+  );
   return (
     <Panel title="QR code" className="w-full shrink-0 lg:w-80">
-      <div className="flex flex-col gap-4 p-5">
-        <div className="flex justify-center border border-ink bg-white p-3">
-          {/* Selalu SVG untuk preview supaya tajam; QR berlatar putih di dark mode agar tetap bisa dipindai */}
-          <img src={`${base}?format=svg&size=200`} alt={`QR code for ${link.short_url}`} className="size-[200px]" />
+      <div className="flex flex-col gap-4 p-4 sm:p-5">
+        {/* Mobile (Figma 20:466): QR kecil di kiri, unduh + "Change size" di kanan; pilihan ukuran/format dibuka sesuai kebutuhan */}
+        <div className="flex gap-4 lg:flex-col lg:gap-4">
+          <div className="flex shrink-0 justify-center self-start border border-ink bg-white p-2 lg:self-stretch lg:p-3">
+            {/* Selalu SVG untuk preview supaya tajam; QR berlatar putih di dark mode agar tetap bisa dipindai */}
+            <img src={`${base}?format=svg&size=200`} alt={`QR code for ${link.short_url}`} className="size-[104px] lg:size-[200px]" />
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col gap-2.5 lg:hidden">
+            <p className="text-xs text-graphite">
+              {format.toUpperCase()}, {size} px
+            </p>
+            {download}
+            <Button variant="outline" className="w-full" aria-expanded={options} onClick={() => setOptions((o) => !o)}>
+              Change size
+            </Button>
+          </div>
         </div>
-        <p className="text-[13px] font-semibold text-ink">Size</p>
-        <Segmented label="QR size" mono value={size} onChange={setSize} options={[128, 256, 512].map((v) => ({ value: v as 128 | 256 | 512, label: String(v) }))} />
-        <p className="text-[13px] font-semibold text-ink">Format</p>
-        <Segmented
-          label="QR format"
-          value={format}
-          onChange={setFormat}
-          options={[
-            { value: "png", label: "PNG" },
-            { value: "svg", label: "SVG" },
-          ]}
-        />
-        <ButtonLink href={`${base}?size=${size}&format=${format}`} download={`${link.alias}-${size}.${format}`} className="w-full">
-          Download {format.toUpperCase()}
-        </ButtonLink>
+        <div className={cn("flex-col gap-4 lg:flex", options ? "flex" : "hidden")}>
+          <p className="text-[13px] font-semibold text-ink">Size</p>
+          <Segmented label="QR size" mono value={size} onChange={setSize} options={[128, 256, 512].map((v) => ({ value: v as 128 | 256 | 512, label: String(v) }))} />
+          <p className="text-[13px] font-semibold text-ink">Format</p>
+          <Segmented
+            label="QR format"
+            value={format}
+            onChange={setFormat}
+            options={[
+              { value: "png", label: "PNG" },
+              { value: "svg", label: "SVG" },
+            ]}
+          />
+        </div>
+        <div className="hidden lg:block">{download}</div>
       </div>
     </Panel>
   );
@@ -67,7 +87,7 @@ function QrPanel({ link }: { link: Link }) {
 
 function ClicksPanel({ link }: { link: Link }) {
   const [range, setRange] = useState<Range>(30);
-  const { from, to, label } = rangeDates(range);
+  const { from, to, label, compact } = rangeDates(range);
   const stats = useQuery({
     queryKey: ["analytics", "link", link.id, range],
     queryFn: () => request<LinkAnalytics>(`/analytics/links/${link.id}?from=${from}&to=${to}`),
@@ -80,7 +100,10 @@ function ClicksPanel({ link }: { link: Link }) {
       aside={
         <DropdownMenu>
           <DropdownMenuTrigger className="cursor-pointer focus-visible:outline-2 focus-visible:outline-signal" aria-label="Change date range">
-            <Chip>{label}</Chip>
+            <Chip>
+              <span className="sm:hidden">{compact}</span>
+              <span className="hidden sm:inline">{label}</span>
+            </Chip>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="border-ink shadow-none">
             {RANGES.map((r) => (
@@ -97,7 +120,7 @@ function ClicksPanel({ link }: { link: Link }) {
       ) : stats.isError ? (
         <PanelMessage tone="error">Couldn't load analytics. {stats.error.message}</PanelMessage>
       ) : (
-        <div className="flex flex-col gap-5 p-5">
+        <div className="flex flex-col gap-4 p-4 sm:gap-5 sm:p-5">
           <div className="flex gap-10">
             <div className="flex flex-col gap-0.5">
               <p className="text-xs text-graphite">Total clicks</p>
@@ -144,7 +167,7 @@ export function LinkDetailPage() {
 
   return (
     <>
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
         <div className="flex min-w-0 flex-col gap-2">
           <nav aria-label="Breadcrumb" className="text-[13px] whitespace-pre text-graphite">
             <RouterLink to="/app/links" className="hover:underline">
@@ -154,7 +177,7 @@ export function LinkDetailPage() {
             {l.alias}
           </nav>
           <div className="flex items-center gap-3">
-            <h1 className="truncate font-mono text-[28px] font-medium text-ink">/{l.alias}</h1>
+            <h1 className="truncate font-mono text-2xl font-medium text-ink sm:text-[28px]">/{l.alias}</h1>
             {expired ? <Chip tone="stop">Expired</Chip> : <Chip tone="signal">Active</Chip>}
           </div>
           <div className="flex items-center gap-2">
@@ -164,7 +187,7 @@ export function LinkDetailPage() {
             </button>
           </div>
         </div>
-        <div className="flex gap-2.5">
+        <div className="flex gap-2.5 [&>button]:flex-1 sm:[&>button]:flex-none">
           <Button variant="outline" onClick={() => navigate(`/app/links/${l.id}/edit`)}>
             Edit
           </Button>
@@ -174,24 +197,24 @@ export function LinkDetailPage() {
         </div>
       </div>
 
-      <section aria-label="Link details" className="grid grid-cols-2 border border-ink bg-paper md:flex">
-        <Detail label="Destination" className="col-span-2 border-b border-ink md:flex-1 md:border-r md:border-b-0">
+      <section aria-label="Link details" className="flex flex-col border border-ink bg-paper md:flex-row">
+        <Detail label="Destination" className="border-b border-ink md:flex-1 md:border-r md:border-b-0" wrap>
           <a href={l.original_url} target="_blank" rel="noreferrer noopener" className="hover:underline" title={l.original_url}>
             {l.original_url.replace(/^https?:\/\//, "")}
           </a>
         </Detail>
-        <Detail label="Created" className="border-r border-ink md:w-[180px]">
+        <Detail label="Created" className="border-b border-ink md:w-[180px] md:border-r md:border-b-0">
           {formatDate(l.created_at)}
         </Detail>
-        <Detail label="Expires" className="border-ink md:w-[180px] md:border-r">
+        <Detail label="Expires" className="border-b border-ink md:w-[180px] md:border-r md:border-b-0">
           {l.expired_at ? formatDate(l.expired_at) : "Never"}
         </Detail>
-        <Detail label="Password" className="border-t border-ink md:w-[140px] md:border-t-0">
+        <Detail label="Password" className="md:w-[140px]">
           {l.has_password ? "On" : "Off"}
         </Detail>
       </section>
 
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+      <div className="flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-start">
         <ClicksPanel link={l} />
         <QrPanel link={l} />
       </div>

@@ -5,6 +5,14 @@ import { Dialog as DialogPrimitive } from "radix-ui"
 
 import { Button } from "@/components/ui/primitives"
 
+/**
+ * Modal LinkForge: di bawah sm menjadi bottom sheet selebar layar yang menempel di dasar (Figma "Sheet — New link"
+ * 20:668 dan "Sheet — Key created" 21:439), dari sm ke atas modal 560px di tengah.
+ */
+export const sheetClass =
+  "top-auto bottom-0 left-0 w-full max-w-none translate-x-0 translate-y-0 gap-0 border-ink p-0 shadow-none " +
+  "sm:top-[50%] sm:bottom-auto sm:left-[50%] sm:w-[calc(100%-2rem)] sm:max-w-[560px] sm:translate-x-[-50%] sm:translate-y-[-50%]"
+
 function Dialog({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Root>) {

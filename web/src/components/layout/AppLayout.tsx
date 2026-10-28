@@ -1,13 +1,13 @@
 import { cn } from "cn";
 import type { ReactNode } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { GridBackground, Logo, ThemeToggle } from "@/components/brand/Brand";
 import { Button } from "@/components/ui/primitives";
 import { useLogout, useMe } from "@/lib/auth";
 
 /*
  * App shell (Figma "Overview — Desktop" 16:278): sidebar 240px berborder kanan + area main.
- * Di layar sempit sidebar berubah jadi top bar + nav horizontal.
+ * Di bawah lg (Figma "Overview — Mobile" 20:278): top bar 56px (logo, theme toggle, avatar inisial) + tab bar 64px di dasar layar.
  */
 
 const NAV = [
@@ -41,6 +41,49 @@ function NavItem({ to, label, end }: { to: string; label: string; end?: boolean 
   );
 }
 
+/** Tab bar mobile (Figma 20:289): empat tab sama lebar, aktif = blok ink; marker 8px di atas label. */
+function TabItem({ to, label }: { to: string; label: string }) {
+  return (
+    <NavLink
+      to={to}
+      className={({ isActive }) =>
+        cn(
+          "flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-1.5 text-xs",
+          "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-signal",
+          isActive ? "bg-ink font-semibold text-paper" : "bg-paper text-ink",
+        )
+      }
+    >
+      {({ isActive }) => (
+        <>
+          <span aria-hidden className={cn("size-2 border", isActive ? "border-signal bg-signal" : "border-ink")} />
+          {label}
+        </>
+      )}
+    </NavLink>
+  );
+}
+
+/** Avatar 32px berisi inisial (Figma "Account"); membuka Profile, tempat Sign out di mobile. */
+function Avatar() {
+  const { data: user } = useMe();
+  const initials = (user?.name ?? "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join("");
+  return (
+    <Link
+      to="/app/profile"
+      aria-label="Profile"
+      className="flex size-8 shrink-0 items-center justify-center rounded-full border border-ink text-xs font-semibold text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
+    >
+      {initials || "?"}
+    </Link>
+  );
+}
+
 function Account() {
   const { data: user } = useMe();
   const logout = useLogout();
@@ -63,7 +106,12 @@ function Account() {
   );
 }
 
+/** Detail link (Figma "Link detail — Mobile" 20:456) adalah halaman daun: tanpa tab bar. */
+const LEAF_PAGE = /^\/app\/links\/(?!new$)[^/]+$/;
+
 export function AppLayout() {
+  const { pathname } = useLocation();
+  const tabBar = !LEAF_PAGE.test(pathname);
   return (
     <div className="flex min-h-dvh flex-col lg:flex-row">
       <GridBackground />
@@ -83,34 +131,60 @@ export function AppLayout() {
       </aside>
 
       {/* Mobile top bar */}
-      <header className="sticky top-0 z-10 flex flex-col border-b border-ink bg-paper lg:hidden">
-        <div className="flex h-14 items-center justify-between px-4">
+      <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between border-b border-ink bg-paper px-4 lg:hidden">
+        <Link to="/app/dashboard" aria-label="LinkForge home" className="focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-signal">
           <Logo />
+        </Link>
+        <div className="flex items-center gap-2.5">
           <ThemeToggle />
+          <Avatar />
         </div>
-        <nav aria-label="Main" className="flex gap-1 overflow-x-auto px-2 pb-2">
-          {NAV.map((item) => (
-            <NavItem key={item.to} {...item} />
-          ))}
-        </nav>
       </header>
 
-      <main className="flex min-w-0 flex-1 flex-col gap-6 px-4 py-6 sm:px-10 sm:py-8">
+      <main className={cn("flex min-w-0 flex-1 flex-col gap-4 px-4 pt-6 sm:gap-6 sm:px-10 sm:pt-8 lg:pb-8", tabBar ? "pb-24" : "pb-8")}>
         <Outlet />
       </main>
+
+      {/* Mobile tab bar */}
+      {tabBar && (
+        <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-10 flex h-16 border-t border-ink bg-paper lg:hidden">
+          {NAV.map((item) => (
+            <TabItem key={item.to} {...item} />
+          ))}
+        </nav>
+      )}
     </div>
   );
 }
 
-/** Page header (Figma "Page header"): judul 32px + subjudul graphite, aksi di kanan. */
-export function PageHeader({ title, subtitle, actions }: { title: ReactNode; subtitle?: ReactNode; actions?: ReactNode }) {
+/**
+ * Page header (Figma "Page header"): judul + subjudul graphite, aksi di kanan. Di mobile judul 28px; subjudul pendek
+ * ("42 links") tetap di bawah judul, yang panjang ("below") turun satu baris penuh di bawah header, atau disembunyikan.
+ */
+export function PageHeader({
+  title,
+  subtitle,
+  mobileSubtitle = "inline",
+  actions,
+}: {
+  title: ReactNode;
+  subtitle?: ReactNode;
+  mobileSubtitle?: "inline" | "below" | "hidden";
+  actions?: ReactNode;
+}) {
+  const subClass = "text-sm text-graphite sm:text-[15px]";
   return (
-    <div className="flex flex-wrap items-end justify-between gap-4">
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <h1 className="text-[32px] leading-[1.1] font-semibold tracking-[-0.64px] text-ink">{title}</h1>
-        {subtitle && <p className="text-[15px] text-graphite">{subtitle}</p>}
+    <div className="flex flex-col gap-3 sm:gap-0">
+      <div className="flex items-end justify-between gap-4">
+        <div className="flex min-w-0 flex-col gap-1 sm:gap-1.5">
+          <h1 className="text-[28px] leading-[1.1] font-semibold tracking-[-0.56px] text-ink sm:text-[32px] sm:tracking-[-0.64px]">{title}</h1>
+          {subtitle && <p className={cn(subClass, mobileSubtitle !== "inline" && "hidden sm:block")}>{subtitle}</p>}
+        </div>
+        {actions && (
+          <div className="flex shrink-0 items-start gap-2 [&>button]:h-9 [&>button]:px-3.5 [&>button]:text-sm sm:[&>button]:h-11 sm:[&>button]:px-5 sm:[&>button]:text-[15px]">{actions}</div>
+        )}
       </div>
-      {actions && <div className="flex items-start gap-2">{actions}</div>}
+      {subtitle && mobileSubtitle === "below" && <p className={cn(subClass, "sm:hidden")}>{subtitle}</p>}
     </div>
   );
 }
@@ -120,9 +194,9 @@ export function Panel({ title, aside, className, children }: { title?: ReactNode
   return (
     <section className={cn("flex flex-col overflow-clip border border-ink bg-paper", className)}>
       {title && (
-        <div className="flex items-center justify-between gap-3 border-b border-ink px-5 py-3.5">
-          <h2 className="text-base font-semibold text-ink">{title}</h2>
-          {aside && <div className="text-[13px] text-graphite">{aside}</div>}
+        <div className="flex items-center justify-between gap-3 border-b border-ink px-4 py-3 sm:px-5 sm:py-3.5">
+          <h2 className="text-[15px] font-semibold text-ink sm:text-base">{title}</h2>
+          {aside && <div className="text-xs text-graphite sm:text-[13px]">{aside}</div>}
         </div>
       )}
       {children}

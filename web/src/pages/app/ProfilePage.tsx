@@ -8,8 +8,8 @@ import { formatDate } from "@/lib/format";
 /** Baris detail akun (Figma "Account details"): label graphite 180px + nilai. */
 function Row({ label, children, first }: { label: string; children: ReactNode; first?: boolean }) {
   return (
-    <div className={first ? "flex flex-col gap-1 px-5 py-4 sm:flex-row sm:items-center sm:gap-4" : "flex flex-col gap-1 border-t border-ink px-5 py-4 sm:flex-row sm:items-center sm:gap-4"}>
-      <p className="text-sm text-graphite sm:w-[180px] sm:shrink-0">{label}</p>
+    <div className={first ? "flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:gap-4 sm:px-5 sm:py-4" : "flex flex-col gap-1 border-t border-ink px-4 py-3 sm:px-5 sm:py-4 sm:flex-row sm:items-center sm:gap-4"}>
+      <p className="text-xs text-graphite sm:w-[180px] sm:shrink-0 sm:text-sm">{label}</p>
       <div className="min-w-0 truncate text-[15px] text-ink">{children}</div>
     </div>
   );
@@ -32,9 +32,9 @@ export function ProfilePage() {
         <Row label="Email">{user?.email}</Row>
         <Row label="Member since">{user?.created_at ? formatDate(user.created_at) : "—"}</Row>
       </section>
-      <div className="flex max-w-[560px] flex-col items-start gap-3 pt-2">
+      <div className="flex max-w-[560px] flex-col gap-3 sm:items-start sm:pt-2">
         <p className="text-sm text-graphite">Signing out ends this session. Other devices stay signed in until their sessions expire.</p>
-        <Button variant="outline" loading={logout.isPending} onClick={() => logout.mutate(undefined, { onSettled: () => navigate("/app/login", { replace: true }) })}>
+        <Button variant="outline" className="w-full sm:w-auto" loading={logout.isPending} onClick={() => logout.mutate(undefined, { onSettled: () => navigate("/app/login", { replace: true }) })}>
           Sign out
         </Button>
       </div>

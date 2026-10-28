@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { CloseIcon } from "@/components/brand/Icons";
 import { Kliko } from "@/components/brand/Kliko";
 import { PageHeader, PanelMessage } from "@/components/layout/AppLayout";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle, sheetClass } from "@/components/ui/dialog";
 import { Button, Field } from "@/components/ui/primitives";
 import { ApiError, request, type ApiKey, type CreatedApiKey } from "@/lib/api";
 import { formatDate, timeAgo } from "@/lib/format";
@@ -37,10 +37,10 @@ function Modal({
         showCloseButton={false}
         onInteractOutside={(e) => !closable && e.preventDefault()}
         onEscapeKeyDown={(e) => !closable && e.preventDefault()}
-        className="w-[calc(100%-2rem)] max-w-[560px] gap-0 border-ink p-0 shadow-none sm:max-w-[560px]"
+        className={sheetClass}
       >
-        {mascot && <div className="pointer-events-none absolute right-6 bottom-full translate-y-[6.7%]">{mascot}</div>}
-        <div className="flex items-center justify-between border-b border-ink px-6 py-4.5">
+        {mascot && <div className="pointer-events-none absolute right-4 bottom-full sm:right-6 translate-y-[6.7%]">{mascot}</div>}
+        <div className="flex items-center justify-between border-b border-ink px-4 py-4 sm:px-6 sm:py-4.5">
           <DialogTitle className="text-xl font-semibold tracking-[-0.2px] text-ink">{title}</DialogTitle>
           {closable && (
             <DialogClose aria-label="Close" className="cursor-pointer p-0.5 focus-visible:outline-2 focus-visible:outline-signal">
@@ -50,7 +50,7 @@ function Modal({
         </div>
         <DialogDescription className="sr-only">{description}</DialogDescription>
         {children}
-        <div className="flex justify-end gap-2.5 border-t border-ink px-6 py-4">{footer}</div>
+        <div className="flex gap-2.5 border-t border-ink px-4 py-4 sm:justify-end sm:px-6 [&>button]:flex-1 sm:[&>button]:flex-none">{footer}</div>
       </DialogContent>
     </Dialog>
   );
@@ -137,15 +137,15 @@ function KeyCreatedDialog({ created, onClose }: { created: CreatedApiKey | null;
         </Button>
       }
     >
-      <div className="flex flex-col gap-4 p-6">
+      <div className="flex flex-col gap-4 p-4 sm:p-6">
         <p className="text-[15px] leading-[1.5] text-graphite">This is the only time the full key is shown. LinkForge stores a hash, so it can’t show it again.</p>
-        <div className="flex flex-col gap-1">
+        <div className="hidden flex-col gap-1 sm:flex">
           <p className="text-xs text-graphite">Name</p>
           <p className="text-[15px] font-semibold text-ink">{created?.name}</p>
         </div>
-        <div className="flex items-center gap-3 border border-signal bg-signal-soft py-3 pr-3 pl-4">
+        <div className="flex flex-col gap-3 border border-signal bg-signal-soft p-3 sm:flex-row sm:items-center sm:py-3 sm:pr-3 sm:pl-4">
           <code className="min-w-0 flex-1 font-mono text-sm font-medium break-all text-ink select-all">{created?.key}</code>
-          <Button size="sm" onClick={copy}>
+          <Button size="sm" className="w-full sm:w-auto" onClick={copy}>
             {copied ? "Copied" : "Copy key"}
           </Button>
         </div>
@@ -211,6 +211,7 @@ export function ApiKeysPage() {
             Send a key in the <code className="font-mono text-[13px] text-ink">X-API-Key</code> header to create and manage links from scripts.
           </>
         }
+        mobileSubtitle="below"
         actions={<Button onClick={() => setCreating(true)}>New key</Button>}
       />
 
@@ -222,7 +223,23 @@ export function ApiKeysPage() {
         ) : keys.data.length === 0 ? (
           <PanelMessage>No keys yet. Create one to shorten links from your scripts, CLI or CI.</PanelMessage>
         ) : (
-          <table className="w-full min-w-[720px] border-collapse">
+          <>
+          {/* Mobile (Figma 21:351): nama, prefix, terakhir dipakai, dan Revoke di kanan */}
+          <ul className="md:hidden">
+            {keys.data.map((k) => (
+              <li key={k.id} className="flex items-center justify-between gap-3 border-t border-ink px-4 py-3.5 first:border-t-0">
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <p className="truncate text-[15px] font-semibold text-ink">{k.name}</p>
+                  <p className="font-mono text-xs text-ink">{k.key_prefix}••••••••</p>
+                  <p className="text-xs text-graphite">{k.last_used_at ? `Used ${timeAgo(new Date(k.last_used_at))}` : "Never used"}</p>
+                </div>
+                <Button variant="outline" size="sm" className="shrink-0" onClick={() => setRevoking(k)}>
+                  Revoke
+                </Button>
+              </li>
+            ))}
+          </ul>
+          <table className="hidden w-full min-w-[720px] border-collapse md:table">
             <thead>
               <tr>
                 <th className={th}>Name</th>
@@ -253,10 +270,13 @@ export function ApiKeysPage() {
               ))}
             </tbody>
           </table>
+          </>
         )}
       </section>
 
-      <p className="text-sm text-graphite">Keys never expire on their own. Revoking a key stops it immediately; your other keys keep working.</p>
+      <p className="text-sm text-graphite">
+        Keys never expire on their own. Revoking a key stops it immediately<span className="hidden sm:inline">; your other keys keep working</span>.
+      </p>
 
       {creating && (
         <NewKeyDialog

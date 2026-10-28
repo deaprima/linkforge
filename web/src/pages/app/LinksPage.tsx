@@ -121,6 +121,23 @@ export function LinksPage() {
   const to = Math.min(page * PAGE_SIZE, total);
   const goTo = (p: number) => setParams(p === 1 ? {} : { page: String(p) });
 
+  // Desktop: di dalam panel; mobile: di bawah daftar kartu (Figma 20:371)
+  const pager = (
+    <div className="flex items-center justify-between">
+      <p className="text-[13px] text-graphite">
+        {from}–{to} of {formatNumber(total)}
+      </p>
+      <div className="flex gap-2">
+        <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => goTo(page - 1)}>
+          Previous
+        </Button>
+        <Button variant="outline" size="sm" disabled={to >= total} onClick={() => goTo(page + 1)}>
+          Next
+        </Button>
+      </div>
+    </div>
+  );
+
   return (
     <>
       <PageHeader
@@ -141,7 +158,38 @@ export function LinksPage() {
             <Button onClick={() => navigate("/app/links/new")}>Create your first link</Button>
           </div>
         ) : (
-          <table className="w-full min-w-[820px] border-collapse">
+          <>
+          {/* Mobile (Figma 20:371): satu kartu per link */}
+          <ul className="md:hidden">
+            {rows.map((l) => (
+              <li key={l.id} className="flex flex-col gap-1.5 border-t border-ink px-4 py-3.5 first:border-t-0">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <RouterLink to={`/app/links/${l.id}`} className="truncate font-mono text-sm font-medium text-ink hover:underline">
+                      /{l.alias}
+                    </RouterLink>
+                    <button
+                      type="button"
+                      aria-label={`Copy ${l.short_url}`}
+                      className="shrink-0 cursor-pointer p-0.5 focus-visible:outline-2 focus-visible:outline-signal"
+                      onClick={() => copyShortUrl(l.short_url)}
+                    >
+                      <CopyIcon />
+                    </button>
+                  </span>
+                  <span className="shrink-0 text-[13px] font-semibold text-ink">{formatNumber(l.click_count)} clicks</span>
+                </div>
+                <p className="truncate text-[13px] text-graphite">{displayUrl(l.original_url)}</p>
+                {(isExpired(l.expired_at) || l.expired_at || l.has_password) && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {isExpired(l.expired_at) ? <Chip tone="stop">Expired</Chip> : l.expired_at && <Chip>Expires {formatDate(l.expired_at)}</Chip>}
+                    {l.has_password && <Chip>Password</Chip>}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+          <table className="hidden w-full min-w-[820px] border-collapse md:table">
             <thead>
               <tr>
                 <th className={cn(th, "w-[220px]")}>Alias</th>
@@ -198,23 +246,11 @@ export function LinksPage() {
               ))}
             </tbody>
           </table>
+          </>
         )}
-        {total > 0 && (
-          <div className="flex items-center justify-between border-t border-ink px-4 py-3">
-            <p className="text-[13px] text-graphite">
-              {from}–{to} of {formatNumber(total)}
-            </p>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => goTo(page - 1)}>
-                Previous
-              </Button>
-              <Button variant="outline" size="sm" disabled={to >= total} onClick={() => goTo(page + 1)}>
-                Next
-              </Button>
-            </div>
-          </div>
-        )}
+        {total > 0 && <div className="hidden border-t border-ink px-4 py-3 md:block">{pager}</div>}
       </section>
+      {total > 0 && <div className="md:hidden">{pager}</div>}
 
       <DeleteLinkDialog link={deleting} onClose={() => setDeleting(null)} />
     </>

@@ -3,7 +3,7 @@ import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { CloseIcon } from "@/components/brand/Icons";
 import { FormError } from "@/components/layout/AuthLayout";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle, sheetClass } from "@/components/ui/dialog";
 import { Button, Field } from "@/components/ui/primitives";
 import { ApiError, request, type Link } from "@/lib/api";
 import { shortLinkBase } from "@/lib/format";
@@ -94,8 +94,8 @@ export function LinkFormDialog({ open, link, onClose, onSaved }: { open: boolean
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent showCloseButton={false} className="w-[calc(100%-2rem)] max-w-[560px] gap-0 border-ink p-0 shadow-none sm:max-w-[560px]">
-        <div className="flex items-center justify-between border-b border-ink px-6 py-4.5">
+      <DialogContent showCloseButton={false} className={sheetClass}>
+        <div className="flex items-center justify-between border-b border-ink px-4 py-4 sm:px-6 sm:py-4.5">
           <DialogTitle className="text-xl font-semibold tracking-[-0.2px] text-ink">{editing ? "Edit link" : "New link"}</DialogTitle>
           <DialogClose aria-label="Close" className="cursor-pointer p-0.5 focus-visible:outline-2 focus-visible:outline-signal">
             <CloseIcon />
@@ -104,7 +104,7 @@ export function LinkFormDialog({ open, link, onClose, onSaved }: { open: boolean
         <DialogDescription className="sr-only">{editing ? "Change where this short link points." : "Shorten a long URL."}</DialogDescription>
 
         <form onSubmit={onSubmit} noValidate>
-          <div className="flex flex-col gap-4.5 p-6">
+          <div className="flex flex-col gap-4.5 p-4 sm:p-6">
             {errors.form && <FormError>{errors.form}</FormError>}
             <Field label="Destination URL" type="url" inputMode="url" placeholder="https://" autoFocus value={url} onChange={(e) => setUrl(e.target.value)} error={errors.url} />
             <Field
@@ -145,7 +145,7 @@ export function LinkFormDialog({ open, link, onClose, onSaved }: { open: boolean
               )}
             </div>
           </div>
-          <div className="flex justify-end gap-2.5 border-t border-ink px-6 py-4">
+          <div className="flex gap-2.5 border-t border-ink px-4 py-4 sm:justify-end sm:px-6 [&>button]:flex-1 sm:[&>button]:flex-none">
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>

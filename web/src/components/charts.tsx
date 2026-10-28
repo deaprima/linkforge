@@ -13,9 +13,11 @@ const shortDate = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "sho
 export function DailyChart({ days }: { days: { date: string; clicks: number }[] }) {
   const max = Math.max(0, ...days.map((d) => d.clicks));
   const maxIndex = max > 0 ? days.findIndex((d) => d.clicks === max) : -1;
-  // 5 label sumbu tersebar rata (awal, 3 tengah, akhir) seperti di Figma
-  const labelIdx = days.length <= 1 ? [0] : [0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(f * (days.length - 1)));
-  const uniqueLabels = [...new Set(labelIdx)];
+  // 5 label sumbu tersebar rata (awal, 3 tengah, akhir) seperti di Figma; di mobile hanya awal, tengah, akhir
+  const fractions = days.length <= 1 ? [0] : [0, 0.25, 0.5, 0.75, 1];
+  const labels = fractions
+    .map((f) => ({ i: Math.round(f * (days.length - 1)), quarter: f === 0.25 || f === 0.75 }))
+    .filter((l, k, all) => all.findIndex((o) => o.i === l.i) === k);
 
   return (
     <figure className="flex w-full flex-col gap-5">
@@ -34,8 +36,10 @@ export function DailyChart({ days }: { days: { date: string; clicks: number }[] 
         </div>
       </div>
       <figcaption className="flex justify-between text-xs text-graphite">
-        {uniqueLabels.map((i) => (
-          <span key={i}>{days[i] ? shortDate.format(new Date(days[i].date)) : ""}</span>
+        {labels.map(({ i, quarter }) => (
+          <span key={i} className={cn(quarter && "hidden sm:inline")}>
+            {days[i] ? shortDate.format(new Date(days[i].date)) : ""}
+          </span>
         ))}
       </figcaption>
     </figure>
