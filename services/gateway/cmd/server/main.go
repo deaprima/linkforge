@@ -66,7 +66,7 @@ func main() {
 	engine, err := router.New(router.Handlers{
 		Auth:     handler.NewAuthHandler(authClient, google, cookies, cfg.FrontendURL),
 		Link:     handler.NewLinkHandler(linkClient, cfg.BaseURL),
-		Redirect: handler.NewRedirectHandler(linkClient),
+		Redirect: handler.NewRedirectHandler(linkClient, cfg.FrontendURL),
 		Health: handler.NewHealthHandler(map[string]handler.CheckFunc{
 			"auth":      authClient.Check,
 			"link":      linkClient.Check,
@@ -79,6 +79,13 @@ func main() {
 		VerifyRateLimit: ratelimit.Middleware(limiter,
 			ratelimit.VerifyPasswordRules(cfg.VerifyLimitPerAlias, cfg.VerifyLimitPerIP, cfg.VerifyLimitWindow),
 			ratelimit.Options{Message: "Too many password attempts. Try again later."}),
+		// Fail-closed juga: tanpa limiter, endpoint ini bisa dipakai membanjiri inbox orang lain
+		ForgotRateLimit: ratelimit.Middleware(limiter,
+			ratelimit.ForgotPasswordRules(cfg.ForgotLimitPerIP, cfg.ForgotLimitWindow),
+			ratelimit.Options{Message: "Too many reset requests. Try again later."}),
+		ResetRateLimit: ratelimit.Middleware(limiter,
+			ratelimit.ResetPasswordRules(cfg.ResetLimitPerIP, cfg.ResetLimitWindow),
+			ratelimit.Options{Message: "Too many attempts. Try again later."}),
 	}, router.Options{
 		CORSOrigins:    cfg.CORSOrigins,
 		TrustedProxies: cfg.TrustedProxies,

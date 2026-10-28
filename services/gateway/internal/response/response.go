@@ -17,6 +17,7 @@ import (
 const (
 	CodeValidation         = "VALIDATION_ERROR"
 	CodeMaliciousURL       = "MALICIOUS_URL"
+	CodeInvalidResetToken  = "INVALID_RESET_TOKEN"
 	CodePasswordRequired   = "PASSWORD_REQUIRED"
 	CodeUnauthorized       = "UNAUTHORIZED"
 	CodeForbidden          = "FORBIDDEN"

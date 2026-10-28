@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/deaprima/linkforge/services/shared/breaker"
+	authpb "github.com/deaprima/linkforge/services/shared/proto/auth"
 	linkpb "github.com/deaprima/linkforge/services/shared/proto/link"
 	qrcode "github.com/skip2/go-qrcode"
 	"google.golang.org/grpc/codes"
@@ -199,5 +201,133 @@ func TestVerify_FailClosedWhenRedisDown(t *testing.T) {
 	}
 	if w := env.do(t, "GET", "/open-link", ""); w.Code != http.StatusFound {
 		t.Errorf("public redirect must keep working without redis: %d", w.Code)
+	}
+}
+
+// Prasyarat web app (Fase 5)
+
+func browser(r *http.Request) {
+	r.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+}
+
+func TestRedirect_BrowserGoesToWebPages(t *testing.T) {
+	env := newEnv()
+	env.link.resolveAlias = func(_ context.Context, r *linkpb.ResolveAliasRequest) (*linkpb.ResolveAliasResponse, error) {
+		switch r.Alias {
+		case "locked":
+			return &linkpb.ResolveAliasResponse{OriginalUrl: "https://secret.com", HasPassword: true}, nil
+		case "old":
+			return &linkpb.ResolveAliasResponse{OriginalUrl: "https://example.com", IsExpired: true}, nil
+		case "down":
+			return nil, status.Error(codes.Unavailable, "link service down")
+		case "tripped":
+			return nil, breaker.ErrOpen
+		case "broken":
+			return nil, status.Error(codes.Internal, "boom")
+		case "ok":
+			return &linkpb.ResolveAliasResponse{OriginalUrl: "https://example.com/dest"}, nil
+		}
+		return nil, status.Error(codes.NotFound, "link not found")
+	}
+
+	tests := []struct {
+		alias, wantLocation string
+	}{
+		{"locked", frontendURL + "/app/p/locked"},
+		{"old", frontendURL + "/app/expired?alias=old"},
+		{"missing", frontendURL + "/app/not-found?alias=missing"},
+		// Backend down tidak boleh menyamar jadi "link tidak ditemukan"
+		{"down", frontendURL + "/app/unavailable?alias=down"},
+		{"tripped", frontendURL + "/app/unavailable?alias=tripped"},
+		{"ok", "https://example.com/dest"},
+	}
+	for _, tt := range tests {
+		w := env.do(t, "GET", "/"+tt.alias, "", browser)
+		if w.Code != http.StatusFound || w.Header().Get("Location") != tt.wantLocation {
+			t.Errorf("%s: got %d → %q, want 302 → %q", tt.alias, w.Code, w.Header().Get("Location"), tt.wantLocation)
+		}
+		if strings.Contains(w.Header().Get("Location"), "secret.com") {
+			t.Errorf("%s: destination of a password-protected link leaked", tt.alias)
+		}
+	}
+
+	// Error yang bukan "backend down" tetap JSON
+	assertError(t, env.do(t, "GET", "/broken", "", browser), 500, "INTERNAL_ERROR")
+
+	// Client API (tanpa Accept: text/html) tetap mendapat JSON
+	assertError(t, env.do(t, "GET", "/locked", ""), 200, "PASSWORD_REQUIRED")
+	assertError(t, env.do(t, "GET", "/missing", "", func(r *http.Request) { r.Header.Set("Accept", "application/json") }), 404, "LINK_NOT_FOUND")
+}
+
+func TestLoginAndRegisterSetSessionCookies(t *testing.T) {
+	env := newEnv()
+	env.auth.login = func(context.Context, *authpb.LoginRequest) (*authpb.LoginResponse, error) {
+		return &authpb.LoginResponse{User: &authpb.User{Id: "user-1"}, Tokens: testTokens}, nil
+	}
+	env.auth.register = func(context.Context, *authpb.RegisterRequest) (*authpb.RegisterResponse, error) {
+		return &authpb.RegisterResponse{User: &authpb.User{Id: "user-1"}, Tokens: testTokens}, nil
+	}
+
+	for path, body := range map[string]string{
+		"/api/v1/auth/login":    `{"email":"a@b.com","password":"password123"}`,
+		"/api/v1/auth/register": `{"name":"a","email":"a@b.com","password":"password123"}`,
+	} {
+		w := env.do(t, "POST", path, body)
+		access, refresh := findCookie(w, "access_token"), findCookie(w, "refresh_token")
+		if access == nil || access.Value != "new-access" || !access.HttpOnly || access.Path != "/" {
+			t.Errorf("%s: access cookie = %+v", path, access)
+		}
+		if refresh == nil || refresh.Value != "new-refresh" || !refresh.HttpOnly || refresh.Path != "/api/v1/auth" || refresh.SameSite != http.SameSiteLaxMode {
+			t.Errorf("%s: refresh cookie = %+v", path, refresh)
+		}
+		// Token tetap ada di body untuk client non-browser
+		if !strings.Contains(w.Body.String(), `"access_token":"new-access"`) {
+			t.Errorf("%s: body must still contain tokens: %s", path, w.Body.String())
+		}
+	}
+
+	// Login gagal tidak memasang cookie
+	env.auth.login = func(context.Context, *authpb.LoginRequest) (*authpb.LoginResponse, error) {
+		return nil, status.Error(codes.Unauthenticated, "invalid credentials")
+	}
+	if w := env.do(t, "POST", "/api/v1/auth/login", `{"email":"a@b.com","password":"wrong"}`); findCookie(w, "access_token") != nil {
+		t.Error("failed login must not set cookies")
+	}
+}
+
+func TestListApiKeysIncludesPrefix(t *testing.T) {
+	env := newEnv()
+	env.auth.listApiKeys = func(context.Context, *authpb.ListApiKeysRequest) (*authpb.ListApiKeysResponse, error) {
+		return &authpb.ListApiKeysResponse{ApiKeys: []*authpb.ApiKey{{Id: "k1", Name: "CLI", KeyPrefix: "lf_sk_a3f9b2"}}}, nil
+	}
+	if body := env.do(t, "GET", "/api/v1/auth/api-keys", "", bearer).Body.String(); !strings.Contains(body, `"key_prefix":"lf_sk_a3f9b2"`) {
+		t.Errorf("body = %s", body)
+	}
+}
+
+func TestCookieOnlySessionModeNeverExposesTokens(t *testing.T) {
+	env := newEnv()
+	env.auth.login = func(context.Context, *authpb.LoginRequest) (*authpb.LoginResponse, error) {
+		return &authpb.LoginResponse{User: &authpb.User{Id: "user-1", Email: "a@b.com"}, Tokens: testTokens}, nil
+	}
+	env.auth.register = func(context.Context, *authpb.RegisterRequest) (*authpb.RegisterResponse, error) {
+		return &authpb.RegisterResponse{User: &authpb.User{Id: "user-1"}, Tokens: testTokens}, nil
+	}
+	cookieMode := func(r *http.Request) { r.Header.Set("X-Session-Mode", "cookie") }
+
+	for path, body := range map[string]string{
+		"/api/v1/auth/login":    `{"email":"a@b.com","password":"password123"}`,
+		"/api/v1/auth/register": `{"name":"a","email":"a@b.com","password":"password123"}`,
+	} {
+		w := env.do(t, "POST", path, body, cookieMode)
+		if strings.Contains(w.Body.String(), "new-access") || strings.Contains(w.Body.String(), "new-refresh") {
+			t.Errorf("%s: tokens leaked into a JS-readable body: %s", path, w.Body.String())
+		}
+		if !strings.Contains(w.Body.String(), `"user":{"id":"user-1"`) {
+			t.Errorf("%s: body must contain the user: %s", path, w.Body.String())
+		}
+		if findCookie(w, "access_token") == nil || findCookie(w, "refresh_token") == nil {
+			t.Errorf("%s: session cookies must still be set", path)
+		}
 	}
 }

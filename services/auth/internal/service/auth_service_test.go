@@ -25,6 +25,8 @@ type testEnv struct {
 	tokens *fakeTokenRepo
 	keys   *fakeKeyRepo
 	oauth  *fakeOAuthRepo
+	resets *fakeResetRepo
+	mail   *fakeMailer
 	tm     TokenManager
 }
 
@@ -34,9 +36,14 @@ func newTestEnv(users ...*entity.User) *testEnv {
 		tokens: newFakeTokenRepo(),
 		keys:   newFakeKeyRepo(),
 		oauth:  &fakeOAuthRepo{},
+		resets: newFakeResetRepo(),
+		mail:   &fakeMailer{},
 		tm:     NewTokenManager(testSecret, testAccessDur),
 	}
-	env.svc = NewAuthService(env.users, env.tokens, env.keys, env.oauth, testClientID, env.tm, 7*24*time.Hour).(*authService)
+	env.svc = NewAuthService(env.users, env.tokens, env.keys, env.oauth, testClientID, env.tm, 7*24*time.Hour, PasswordResetConfig{
+		Repo: env.resets, Mailer: env.mail, FrontendURL: "https://app.example.com/", TTL: time.Hour,
+	}).(*authService)
+	env.svc.async = func(fn func()) { fn() } // email terkirim sebelum RequestPasswordReset kembali
 	return env
 }
 

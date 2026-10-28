@@ -386,7 +386,7 @@ func validateCustomAlias(alias string) error {
         return errors.New("alias hanya boleh huruf, angka, tanda hubung (-) dan underscore (_), panjang 3-64 karakter")
     }
     // Reserved words yang tidak boleh dipakai sebagai alias
-    reserved := []string{"api", "admin", "login", "register", "health", "healthz", "readyz", "metrics"}
+    reserved := []string{"api", "admin", "login", "register", "health", "healthz", "readyz", "metrics", "app", "assets"}
     for _, r := range reserved {
         if strings.EqualFold(alias, r) {
             return fmt.Errorf("alias '%s' is reserved", alias)

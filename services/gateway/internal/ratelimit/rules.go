@@ -28,3 +28,17 @@ func VerifyPasswordRules(perAlias, perIP int, window time.Duration) RulesFunc {
 		}
 	}
 }
+
+// ForgotPasswordRules membatasi permintaan email reset per IP (mencegah email bombing dan enumerasi lewat timing).
+func ForgotPasswordRules(perIP int, window time.Duration) RulesFunc {
+	return func(c *gin.Context) []Rule {
+		return []Rule{{Key: "forgot:ip:" + c.ClientIP(), Limit: perIP, Window: window}}
+	}
+}
+
+// ResetPasswordRules membatasi percobaan reset per IP. Token 256 bit tidak bisa ditebak; ini menahan banjir request.
+func ResetPasswordRules(perIP int, window time.Duration) RulesFunc {
+	return func(c *gin.Context) []Rule {
+		return []Rule{{Key: "reset:ip:" + c.ClientIP(), Limit: perIP, Window: window}}
+	}
+}

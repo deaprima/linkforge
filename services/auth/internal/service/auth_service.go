@@ -49,6 +49,10 @@ type AuthService interface {
 
 	// Google OAuth
     GoogleAuth(ctx context.Context, idToken string) (*entity.User, *TokenResult, error)
+
+	// Lupa password
+	RequestPasswordReset(ctx context.Context, email string) error
+	ResetPassword(ctx context.Context, rawToken, newPassword string) error
 }
 
 type authService struct {
@@ -59,6 +63,10 @@ type authService struct {
 	googleClientID string
 	tokenManager TokenManager
 	refreshDur   time.Duration
+	reset        PasswordResetConfig
+
+	// async menjalankan pekerjaan di background (kirim email); diganti sinkron di unit test
+	async func(fn func())
 
 	// verifyIDToken = idtoken.Validate; bisa diganti di unit test supaya tidak memanggil Google
 	verifyIDToken func(ctx context.Context, idToken, audience string) (*idtoken.Payload, error)
@@ -72,6 +80,7 @@ func NewAuthService(
 	googleClientID string,
 	tokenManager TokenManager,
 	refreshDur time.Duration,
+	reset PasswordResetConfig,
 ) AuthService {
 	return &authService{
 		userRepo:     userRepo,
@@ -81,6 +90,8 @@ func NewAuthService(
 		googleClientID: googleClientID,
 		tokenManager: tokenManager,
 		refreshDur:   refreshDur,
+		reset:        reset,
+		async:        func(fn func()) { go fn() },
 		verifyIDToken: idtoken.Validate,
 	}
 }

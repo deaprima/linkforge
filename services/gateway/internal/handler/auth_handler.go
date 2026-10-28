@@ -28,6 +28,8 @@ type AuthService interface {
 	ListApiKeys(ctx context.Context, req *pb.ListApiKeysRequest) (*pb.ListApiKeysResponse, error)
 	DeleteApiKey(ctx context.Context, req *pb.DeleteApiKeyRequest) (*pb.DeleteApiKeyResponse, error)
 	GoogleAuth(ctx context.Context, req *pb.GoogleAuthRequest) (*pb.GoogleAuthResponse, error)
+	RequestPasswordReset(ctx context.Context, req *pb.RequestPasswordResetRequest) (*pb.RequestPasswordResetResponse, error)
+	ResetPassword(ctx context.Context, req *pb.ResetPasswordRequest) (*pb.ResetPasswordResponse, error)
 }
 
 type AuthHandler struct {
@@ -63,6 +65,7 @@ type authDTO struct {
 type apiKeyDTO struct {
 	ID         string     `json:"id"`
 	Name       string     `json:"name"`
+	KeyPrefix  string     `json:"key_prefix"`
 	LastUsedAt *time.Time `json:"last_used_at"`
 	CreatedAt  time.Time  `json:"created_at"`
 }
@@ -107,6 +110,15 @@ type refreshTokenRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+type forgotPasswordRequest struct {
+	Email string `json:"email" binding:"required,email,max=255"`
+}
+
+type resetPasswordRequest struct {
+	Token    string `json:"token" binding:"required,max=256"`
+	Password string `json:"password" binding:"required,min=8,max=72"` // bcrypt hanya membaca 72 byte pertama
+}
+
 type createApiKeyRequest struct {
 	Name string `json:"name" binding:"required,max=100"`
 }
@@ -131,7 +143,54 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		})
 		return
 	}
-	response.OK(c, http.StatusCreated, toAuthDTO(res.GetUser(), res.GetTokens()))
+	h.respondSession(c, http.StatusCreated, res.GetUser(), res.GetTokens())
+}
+
+// POST /api/v1/auth/forgot-password
+// Balasan selalu sama baik email terdaftar maupun tidak, supaya endpoint ini tidak bisa dipakai
+// untuk mengecek siapa yang punya akun.
+func (h *AuthHandler) ForgotPassword(c *gin.Context) {
+	var req forgotPasswordRequest
+	if !bindJSON(c, &req, false) {
+		return
+	}
+	if _, err := h.auth.RequestPasswordReset(rpcContext(c), &pb.RequestPasswordResetRequest{Email: req.Email}); err != nil {
+		response.GRPCError(c, err, nil)
+		return
+	}
+	response.OK(c, http.StatusOK, gin.H{"message": "If that email is registered, a reset link is on its way."})
+}
+
+// POST /api/v1/auth/reset-password
+func (h *AuthHandler) ResetPassword(c *gin.Context) {
+	var req resetPasswordRequest
+	if !bindJSON(c, &req, false) {
+		return
+	}
+	_, err := h.auth.ResetPassword(rpcContext(c), &pb.ResetPasswordRequest{Token: req.Token, NewPassword: req.Password})
+	if err != nil {
+		response.GRPCError(c, err, response.Overrides{
+			codes.InvalidArgument: {Status: http.StatusBadRequest, Code: response.CodeInvalidResetToken},
+		})
+		return
+	}
+	// Semua refresh token user sudah dicabut; cookie sesi yang tersisa di browser ini tidak berguna lagi
+	h.cookies.clearTokens(c)
+	response.OK(c, http.StatusOK, gin.H{"message": "Your password has been changed. Sign in with the new password."})
+}
+
+// sessionModeHeader: web app mengirim "X-Session-Mode: cookie" supaya token tidak pernah ada di body
+// JSON (yang bisa dibaca JavaScript/XSS). Client lain tetap menerima token di body.
+const sessionModeHeader = "X-Session-Mode"
+
+// respondSession memasang cookie sesi, lalu membalas user (+ token kecuali mode cookie-only).
+func (h *AuthHandler) respondSession(c *gin.Context, status int, user *pb.User, tokens *pb.TokenPair) {
+	h.cookies.setTokens(c, tokens.GetAccessToken(), tokens.GetRefreshToken())
+	if c.GetHeader(sessionModeHeader) == "cookie" {
+		response.OK(c, status, gin.H{"user": toUserDTO(user)})
+		return
+	}
+	response.OK(c, status, toAuthDTO(user, tokens))
 }
 
 // POST /api/v1/auth/login
@@ -149,7 +208,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		response.GRPCError(c, err, nil)
 		return
 	}
-	response.OK(c, http.StatusOK, toAuthDTO(res.GetUser(), res.GetTokens()))
+	h.respondSession(c, http.StatusOK, res.GetUser(), res.GetTokens())
 }
 
 // POST /api/v1/auth/refresh — refresh token dari body, atau dari cookie (client OAuth/browser)
@@ -183,7 +242,10 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 
 	tokens := res.GetTokens()
 	if fromCookie {
+		// Sesi browser: token baru hanya lewat cookie, tidak pernah di body (lihat respondSession)
 		h.cookies.setTokens(c, tokens.GetAccessToken(), tokens.GetRefreshToken())
+		response.NoContent(c)
+		return
 	}
 	response.OK(c, http.StatusOK, tokenDTO{
 		AccessToken:  tokens.GetAccessToken(),
@@ -262,6 +324,7 @@ func (h *AuthHandler) ListApiKeys(c *gin.Context) {
 		keys = append(keys, apiKeyDTO{
 			ID:         k.GetId(),
 			Name:       k.GetName(),
+			KeyPrefix:  k.GetKeyPrefix(),
 			LastUsedAt: timePtr(k.GetLastUsedAt()),
 			CreatedAt:  timeVal(k.GetCreatedAt()),
 		})
@@ -338,11 +401,11 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 	}
 
 	h.cookies.setTokens(c, res.GetTokens().GetAccessToken(), res.GetTokens().GetRefreshToken())
-	c.Redirect(http.StatusFound, h.frontendURL+"/dashboard")
+	c.Redirect(http.StatusFound, h.frontendURL+WebPathDashboard)
 }
 
 func (h *AuthHandler) redirectOAuthError(c *gin.Context, reason string) {
-	c.Redirect(http.StatusFound, h.frontendURL+"/login?error="+url.QueryEscape(reason))
+	c.Redirect(http.StatusFound, h.frontendURL+WebPathLogin+"?error="+url.QueryEscape(reason))
 }
 
 func randomState() (string, error) {

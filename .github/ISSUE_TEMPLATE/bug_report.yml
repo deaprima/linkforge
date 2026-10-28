@@ -1,0 +1,46 @@
+name: Bug report
+description: Something does not work the way it should
+labels: [bug]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to ...
+        2. Click ...
+        3. See the error
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where does it happen?
+      options:
+        - Web app
+        - API (Gateway)
+        - Auth service
+        - Link service
+        - Analytics service
+        - Docker / setup
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and responses
+      description: Service logs, the API response (with `error.code`), or a browser console error. Remove tokens and keys first.
+      render: text
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, browser, Go and Node versions, or the commit you are on.

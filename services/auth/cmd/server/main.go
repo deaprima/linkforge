@@ -10,6 +10,7 @@ import (
 	"github.com/deaprima/linkforge/services/auth/internal/config"
 	grpcDelivery "github.com/deaprima/linkforge/services/auth/internal/delivery/grpc"
 	"github.com/deaprima/linkforge/services/auth/internal/entity"
+	"github.com/deaprima/linkforge/services/auth/internal/mailer"
 	"github.com/deaprima/linkforge/services/auth/internal/repository"
 	"github.com/deaprima/linkforge/services/auth/internal/service"
 	"github.com/deaprima/linkforge/services/shared/database"
@@ -42,6 +43,7 @@ func main(){
 		&entity.OAuthAccount{},
 		&entity.RefreshToken{},
 		&entity.ApiKey{},
+		&entity.PasswordResetToken{},
 	)
 	if err != nil {
 		log.Fatalf("Database migration failed: %v", err)
@@ -52,9 +54,18 @@ func main(){
 	tokenRepo := repository.NewTokenRepository(db)
 	keyRepo := repository.NewApiKeyRepository(db)
 	oauthRepo := repository.NewOAuthRepository(db)
+	resetRepo := repository.NewPasswordResetRepository(db)
 
 	tokenManager := service.NewTokenManager(cfg.JWTSecret, cfg.JWTAccessDur)
-	authService := service.NewAuthService(userRepo, tokenRepo, keyRepo, oauthRepo, cfg.GoogleClientID, tokenManager, cfg.JWTAccessDur)
+	authService := service.NewAuthService(userRepo, tokenRepo, keyRepo, oauthRepo, cfg.GoogleClientID, tokenManager, cfg.JWTRefreshDur,
+		service.PasswordResetConfig{
+			Repo: resetRepo,
+			Mailer: mailer.New(mailer.SMTPConfig{
+				Host: cfg.SMTPHost, Port: cfg.SMTPPort, User: cfg.SMTPUser, Pass: cfg.SMTPPass, From: cfg.SMTPFrom,
+			}),
+			FrontendURL: cfg.FrontendURL,
+			TTL:         cfg.ResetTokenTTL,
+		})
 
 	authHandler := grpcDelivery.NewAuthHandler(authService)
 

@@ -56,3 +56,12 @@ func TestValidateCustomAlias(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateCustomAlias_ReservesWebAppPaths(t *testing.T) {
+	// Web app hidup di /app/* dan asset di /assets/* pada domain yang sama dengan short link
+	for _, alias := range []string{"app", "APP", "assets"} {
+		if err := validateCustomAlias(alias); err == nil {
+			t.Errorf("alias %q must be reserved", alias)
+		}
+	}
+}

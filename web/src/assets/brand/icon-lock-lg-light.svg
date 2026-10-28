@@ -1,0 +1,11 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Lock">
+<path id="Vector" d="M33 18H7V36H33V18Z" fill="white" stroke-width="2" stroke="black"/>
+<path id="Vector_2" d="M13 18V12C13 10.1435 13.7375 8.36301 15.0503 7.05025C16.363 5.7375 18.1435 5 20 5C21.8565 5 23.637 5.7375 24.9497 7.05025C26.2625 8.36301 27 10.1435 27 12V18" stroke-width="2" stroke="black"/>
+<path id="Vector_3" d="M20 28.5C21.3807 28.5 22.5 27.3807 22.5 26C22.5 24.6193 21.3807 23.5 20 23.5C18.6193 23.5 17.5 24.6193 17.5 26C17.5 27.3807 18.6193 28.5 20 28.5Z" fill="#18A957"/>
+<g id="Vector_4">
+<path d="M20 28V31Z" fill="black"/>
+<path d="M20 28V31" stroke-width="2" stroke="#18A957"/>
+</g>
+</g>
+</svg>

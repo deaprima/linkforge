@@ -1,0 +1,13 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="560" height="300" viewBox="0 0 560 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Diagram">
+<path id="Vector" d="M160 40H20V96H160V40Z" fill="#101211" stroke="#E9ECEA" stroke-width="1.5"/>
+<path id="Vector_2" d="M42 74C45.3137 74 48 71.3137 48 68C48 64.6863 45.3137 62 42 62C38.6863 62 36 64.6863 36 68C36 71.3137 38.6863 74 42 74Z" fill="#2BD674"/>
+<path id="Vector_3" d="M500 40H360V96H500V40Z" fill="#101211" stroke="#E9ECEA" stroke-width="1.5"/>
+<path id="Vector_4" d="M382 74C385.314 74 388 71.3137 388 68C388 64.6863 385.314 62 382 62C378.686 62 376 64.6863 376 68C376 71.3137 378.686 74 382 74Z" fill="#FF5C5C"/>
+<path id="Vector_5" d="M330 210H190V266H330V210Z" fill="#101211" stroke="#E9ECEA" stroke-width="1.5" stroke-dasharray="6 4"/>
+<path id="Vector_6" d="M212 244C215.314 244 218 241.314 218 238C218 234.686 215.314 232 212 232C208.686 232 206 234.686 206 238C206 241.314 208.686 244 212 244Z" fill="#101211" stroke="#E9ECEA" stroke-width="1.5"/>
+<path id="Vector_7" d="M160 60H354M430 96V160C430 212 398.667 238 336 238M190 238C123.333 238 90 212 90 160V104" stroke="#E9ECEA" stroke-width="1.2"/>
+<path id="Vector_8" d="M300 210C320 163.333 344.667 128 374 104" stroke="#E9ECEA" stroke-width="1.2" stroke-dasharray="4 4"/>
+<path id="Vector_9" d="M346 55L356 60L346 65V55ZM344 233L334 238L344 243V233ZM85 106L90 96L95 106H85ZM366 102L378 100L373 111L366 102Z" fill="#E9ECEA"/>
+</g>
+</svg>

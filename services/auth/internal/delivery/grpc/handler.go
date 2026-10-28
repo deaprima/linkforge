@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/deaprima/linkforge/services/auth/internal/entity"
@@ -77,6 +78,27 @@ func (h *AuthHandler) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Logi
 			RefreshToken: tokens.RefreshToken,
 		},
 	}, nil
+}
+
+func (h *AuthHandler) RequestPasswordReset(ctx context.Context, req *pb.RequestPasswordResetRequest) (*pb.RequestPasswordResetResponse, error) {
+	if err := h.authService.RequestPasswordReset(ctx, req.GetEmail()); err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to request password reset: %v", err)
+	}
+	return &pb.RequestPasswordResetResponse{Success: true}, nil
+}
+
+func (h *AuthHandler) ResetPassword(ctx context.Context, req *pb.ResetPasswordRequest) (*pb.ResetPasswordResponse, error) {
+	err := h.authService.ResetPassword(ctx, req.GetToken(), req.GetNewPassword())
+	switch {
+	case err == nil:
+		return &pb.ResetPasswordResponse{Success: true}, nil
+	case errors.Is(err, service.ErrInvalidResetToken):
+		return nil, status.Error(codes.InvalidArgument, "This reset link is invalid or has expired.")
+	case errors.Is(err, service.ErrInvalidPassword):
+		// FailedPrecondition dipetakan Gateway ke VALIDATION_ERROR; InvalidArgument dipakai untuk token
+		return nil, status.Error(codes.FailedPrecondition, err.Error())
+	}
+	return nil, status.Errorf(codes.Internal, "failed to reset password: %v", err)
 }
 
 func (h *AuthHandler) ValidateToken(ctx context.Context, req *pb.ValidateTokenRequest) (*pb.ValidateTokenResponse, error) {
@@ -173,6 +195,7 @@ func toProtoApiKey(k *entity.ApiKey) *pb.ApiKey {
     proto := &pb.ApiKey{
         Id:        k.ID.String(),
         Name:      k.Name,
+        KeyPrefix: k.KeyPrefix,
         CreatedAt: timestamppb.New(k.CreatedAt),
     }
     if k.LastUsedAt != nil {
