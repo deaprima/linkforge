@@ -1,15 +1,6 @@
-import { createBrowserRouter, Navigate } from "react-router";
-import { AppLayout } from "@/components/layout/AppLayout";
+import type { ComponentType } from "react";
+import { createBrowserRouter, Navigate, type RouteObject } from "react-router";
 import { GuestOnly, RequireAuth } from "@/lib/auth";
-import { ApiKeysPage } from "@/pages/app/ApiKeysPage";
-import { LinkDetailPage } from "@/pages/app/LinkDetailPage";
-import { EditLinkRoute, NewLinkRoute } from "@/pages/app/LinkModalRoutes";
-import { LinksPage } from "@/pages/app/LinksPage";
-import { OverviewPage } from "@/pages/app/OverviewPage";
-import { ProfilePage } from "@/pages/app/ProfilePage";
-import { RegisterPage, SignInPage } from "@/pages/auth/AuthPages";
-import { LandingPage } from "@/pages/landing/LandingPage";
-import { ExpiredPage, NotFoundPage, PasswordGatePage, UnavailablePage } from "@/pages/public/PublicPages";
 
 /*
  * Routing web app (lihat API-CONTRACT.md "Routing web app"):
@@ -17,27 +8,61 @@ import { ExpiredPage, NotFoundPage, PasswordGatePage, UnavailablePage } from "@/
  *   /app/*       halaman aplikasi (short link hidup di root, jadi app tidak boleh di root)
  * Path /app/login, /app/dashboard, /app/p/:alias, /app/not-found, /app/expired, /app/unavailable dipakai Gateway
  * sebagai target redirect — jangan diganti tanpa mengubah gateway/internal/handler/webpaths.go.
+ *
+ * Tiap halaman dimuat malas (code splitting): pengunjung landing atau password gate tidak mengunduh kode dashboard.
  */
+
+/** Rute yang modulnya baru diunduh saat dikunjungi. `wrap` membungkus halaman (mis. guard auth). */
+function lazyPage<M>(load: () => Promise<M>, pick: (m: M) => ComponentType, wrap?: (page: ComponentType) => ComponentType): Pick<RouteObject, "lazy"> {
+  return {
+    lazy: async () => {
+      const page = pick(await load());
+      return { Component: wrap ? wrap(page) : page };
+    },
+  };
+}
+
+const guest = (Page: ComponentType): ComponentType =>
+  function Guest() {
+    return (
+      <GuestOnly>
+        <Page />
+      </GuestOnly>
+    );
+  };
+
+const authed = (Layout: ComponentType): ComponentType =>
+  function Authed() {
+    return (
+      <RequireAuth>
+        <Layout />
+      </RequireAuth>
+    );
+  };
+
+const publicPages = () => import("@/pages/public/PublicPages");
+const authPages = () => import("@/pages/auth/AuthPages");
+
 export const router = createBrowserRouter([
-  { path: "/", element: <LandingPage /> },
+  { path: "/", ...lazyPage(() => import("@/pages/landing/LandingPage"), (m) => m.LandingPage) },
   { path: "/app", element: <Navigate to="/app/dashboard" replace /> },
-  { path: "/app/login", element: <GuestOnly><SignInPage /></GuestOnly> },
-  { path: "/app/register", element: <GuestOnly><RegisterPage /></GuestOnly> },
+  { path: "/app/login", ...lazyPage(authPages, (m) => m.SignInPage, guest) },
+  { path: "/app/register", ...lazyPage(authPages, (m) => m.RegisterPage, guest) },
   {
-    element: <RequireAuth><AppLayout /></RequireAuth>,
+    ...lazyPage(() => import("@/components/layout/AppLayout"), (m) => m.AppLayout, authed),
     children: [
-      { path: "/app/dashboard", element: <OverviewPage /> },
-      { path: "/app/links", element: <LinksPage /> },
-      { path: "/app/links/new", element: <NewLinkRoute /> },
-      { path: "/app/links/:id", element: <LinkDetailPage /> },
-      { path: "/app/links/:id/edit", element: <EditLinkRoute /> },
-      { path: "/app/api-keys", element: <ApiKeysPage /> },
-      { path: "/app/profile", element: <ProfilePage /> },
+      { path: "/app/dashboard", ...lazyPage(() => import("@/pages/app/OverviewPage"), (m) => m.OverviewPage) },
+      { path: "/app/links", ...lazyPage(() => import("@/pages/app/LinksPage"), (m) => m.LinksPage) },
+      { path: "/app/links/new", ...lazyPage(() => import("@/pages/app/LinkModalRoutes"), (m) => m.NewLinkRoute) },
+      { path: "/app/links/:id", ...lazyPage(() => import("@/pages/app/LinkDetailPage"), (m) => m.LinkDetailPage) },
+      { path: "/app/links/:id/edit", ...lazyPage(() => import("@/pages/app/LinkModalRoutes"), (m) => m.EditLinkRoute) },
+      { path: "/app/api-keys", ...lazyPage(() => import("@/pages/app/ApiKeysPage"), (m) => m.ApiKeysPage) },
+      { path: "/app/profile", ...lazyPage(() => import("@/pages/app/ProfilePage"), (m) => m.ProfilePage) },
     ],
   },
-  { path: "/app/p/:alias", element: <PasswordGatePage /> },
-  { path: "/app/not-found", element: <NotFoundPage /> },
-  { path: "/app/expired", element: <ExpiredPage /> },
-  { path: "/app/unavailable", element: <UnavailablePage /> },
-  { path: "*", element: <NotFoundPage /> },
+  { path: "/app/p/:alias", ...lazyPage(publicPages, (m) => m.PasswordGatePage) },
+  { path: "/app/not-found", ...lazyPage(publicPages, (m) => m.NotFoundPage) },
+  { path: "/app/expired", ...lazyPage(publicPages, (m) => m.ExpiredPage) },
+  { path: "/app/unavailable", ...lazyPage(publicPages, (m) => m.UnavailablePage) },
+  { path: "*", ...lazyPage(publicPages, (m) => m.NotFoundPage) },
 ]);
