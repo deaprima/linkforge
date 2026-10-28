@@ -35,6 +35,12 @@ type Config struct {
 	VerifyLimitPerAlias	int
 	VerifyLimitPerIP	int
 	VerifyLimitWindow	time.Duration
+
+	// Lupa password: POST /auth/forgot-password dan /auth/reset-password, per IP
+	ForgotLimitPerIP  int
+	ForgotLimitWindow time.Duration
+	ResetLimitPerIP   int
+	ResetLimitWindow  time.Duration
 }
 
 func LoadConfig() *Config {
@@ -65,6 +71,11 @@ func LoadConfig() *Config {
 		VerifyLimitPerAlias: getEnvInt("VERIFY_LIMIT_PER_ALIAS", 5),
 		VerifyLimitPerIP:    getEnvInt("VERIFY_LIMIT_PER_IP", 20),
 		VerifyLimitWindow:   getEnvDuration("VERIFY_LIMIT_WINDOW", 15*time.Minute),
+
+		ForgotLimitPerIP:  getEnvInt("FORGOT_LIMIT_PER_IP", 5),
+		ForgotLimitWindow: getEnvDuration("FORGOT_LIMIT_WINDOW", time.Hour),
+		ResetLimitPerIP:   getEnvInt("RESET_LIMIT_PER_IP", 20),
+		ResetLimitWindow:  getEnvDuration("RESET_LIMIT_WINDOW", 15*time.Minute),
 	}
 }
 

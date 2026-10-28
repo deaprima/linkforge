@@ -85,6 +85,10 @@ func (e *testEnv) engine(t *testing.T) *gin.Engine {
 		Analytics: handler.NewAnalyticsHandler(e.analytics, e.link, e.auth, []string{frontendURL}),
 		Validator:       e.auth,
 		VerifyRateLimit: verifyLimit,
+		ForgotRateLimit: ratelimit.Middleware(ratelimit.NewRedisLimiter(rdb, "rl:"),
+			ratelimit.ForgotPasswordRules(3, time.Hour), ratelimit.Options{Message: "Too many reset requests. Try again later."}),
+		ResetRateLimit: ratelimit.Middleware(ratelimit.NewRedisLimiter(rdb, "rl:"),
+			ratelimit.ResetPasswordRules(3, 15*time.Minute), ratelimit.Options{Message: "Too many attempts. Try again later."}),
 	}, router.Options{CORSOrigins: []string{frontendURL}})
 	if err != nil {
 		t.Fatal(err)

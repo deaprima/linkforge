@@ -91,3 +91,15 @@ func (c *AuthClient) GoogleAuth(ctx context.Context, req *pb.GoogleAuthRequest) 
 		return c.client.GoogleAuth(ctx, req)
 	})
 }
+
+func (c *AuthClient) RequestPasswordReset(ctx context.Context, req *pb.RequestPasswordResetRequest) (*pb.RequestPasswordResetResponse, error) {
+	return call(ctx, &c.baseClient, func(ctx context.Context) (*pb.RequestPasswordResetResponse, error) {
+		return c.client.RequestPasswordReset(ctx, req)
+	})
+}
+
+func (c *AuthClient) ResetPassword(ctx context.Context, req *pb.ResetPasswordRequest) (*pb.ResetPasswordResponse, error) {
+	return call(ctx, &c.baseClient, func(ctx context.Context) (*pb.ResetPasswordResponse, error) {
+		return c.client.ResetPassword(ctx, req)
+	})
+}

@@ -50,6 +50,16 @@ func (r *fakeUserRepo) GetByID(_ context.Context, id uuid.UUID) (*entity.User, e
 	return r.users[id], nil
 }
 
+func (r *fakeUserRepo) UpdatePassword(_ context.Context, id uuid.UUID, hash string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.getErr != nil {
+		return r.getErr
+	}
+	r.users[id].PasswordHash = &hash
+	return nil
+}
+
 func (r *fakeUserRepo) GetByEmail(_ context.Context, email string) (*entity.User, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

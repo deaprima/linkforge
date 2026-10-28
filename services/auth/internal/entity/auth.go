@@ -66,3 +66,18 @@ type ApiKey struct {
 func (ApiKey) TableName() string {
 	return "api_keys"
 }
+
+// PasswordResetToken = token lupa password. Hanya hash SHA-256 yang disimpan; token mentah ada di email user.
+type PasswordResetToken struct {
+	ID        uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	UserID    uuid.UUID  `gorm:"type:uuid;index;not null"`
+	User      User       `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
+	TokenHash string     `gorm:"type:varchar(255);uniqueIndex;not null"`
+	ExpiresAt time.Time  `gorm:"not null"`
+	UsedAt    *time.Time `gorm:"index"`
+	CreatedAt time.Time  `gorm:"not null;default:now()"`
+}
+
+func (PasswordResetToken) TableName() string {
+	return "password_reset_tokens"
+}

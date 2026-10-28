@@ -25,6 +25,7 @@ type fakeAuthService struct {
 	rawKey string
 	err    error
 
+	gotEmail, gotToken, gotNewPassword string
 	gotIP, gotUA string
 	gotUserID    uuid.UUID
 	gotKeyID     uuid.UUID
@@ -64,6 +65,15 @@ func (f *fakeAuthService) ValidateApiKey(context.Context, string) (*entity.ApiKe
 }
 func (f *fakeAuthService) GoogleAuth(context.Context, string) (*entity.User, *service.TokenResult, error) {
 	return f.user, f.tokens, f.err
+}
+
+func (f *fakeAuthService) RequestPasswordReset(_ context.Context, email string) error {
+	f.gotEmail = email
+	return f.err
+}
+func (f *fakeAuthService) ResetPassword(_ context.Context, token, newPassword string) error {
+	f.gotToken, f.gotNewPassword = token, newPassword
+	return f.err
 }
 
 var (
@@ -306,5 +316,43 @@ func TestListApiKeys_IncludesPrefix(t *testing.T) {
 	res, err := NewAuthHandler(&fakeAuthService{keys: keys}).ListApiKeys(context.Background(), &pb.ListApiKeysRequest{UserId: uuid.NewString()})
 	if err != nil || res.ApiKeys[0].KeyPrefix != "lf_sk_a3f9b2" {
 		t.Errorf("res=%v err=%v", res, err)
+	}
+}
+
+func TestRequestPasswordReset(t *testing.T) {
+	svc := &fakeAuthService{}
+	res, err := NewAuthHandler(svc).RequestPasswordReset(context.Background(), &pb.RequestPasswordResetRequest{Email: "dea@example.com"})
+	wantCode(t, err, codes.OK)
+	if !res.GetSuccess() || svc.gotEmail != "dea@example.com" {
+		t.Fatalf("res=%v gotEmail=%q", res, svc.gotEmail)
+	}
+
+	_, err = NewAuthHandler(&fakeAuthService{err: errors.New("db down")}).RequestPasswordReset(context.Background(), &pb.RequestPasswordResetRequest{Email: "a@b.c"})
+	wantCode(t, err, codes.Internal)
+}
+
+func TestResetPassword(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want codes.Code
+	}{
+		{"ok", nil, codes.OK},
+		{"bad token", service.ErrInvalidResetToken, codes.InvalidArgument},
+		{"bad password", service.ErrInvalidPassword, codes.FailedPrecondition},
+		{"db error", errors.New("db down"), codes.Internal},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := &fakeAuthService{err: tt.err}
+			res, err := NewAuthHandler(svc).ResetPassword(context.Background(), &pb.ResetPasswordRequest{Token: "tok", NewPassword: "newpassword1"})
+			wantCode(t, err, tt.want)
+			if tt.want == codes.OK && !res.GetSuccess() {
+				t.Fatal("want success")
+			}
+			if svc.gotToken != "tok" || svc.gotNewPassword != "newpassword1" {
+				t.Fatalf("input not forwarded: %q %q", svc.gotToken, svc.gotNewPassword)
+			}
+		})
 	}
 }

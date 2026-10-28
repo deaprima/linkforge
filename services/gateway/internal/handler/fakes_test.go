@@ -26,6 +26,9 @@ type fakeAuth struct {
 	listApiKeys  func(context.Context, *authpb.ListApiKeysRequest) (*authpb.ListApiKeysResponse, error)
 	deleteApiKey func(context.Context, *authpb.DeleteApiKeyRequest) (*authpb.DeleteApiKeyResponse, error)
 	googleAuth   func(context.Context, *authpb.GoogleAuthRequest) (*authpb.GoogleAuthResponse, error)
+
+	requestPasswordReset func(context.Context, *authpb.RequestPasswordResetRequest) (*authpb.RequestPasswordResetResponse, error)
+	resetPassword        func(context.Context, *authpb.ResetPasswordRequest) (*authpb.ResetPasswordResponse, error)
 }
 
 func stub[Req, Res any](fn func(context.Context, Req) (Res, error), ctx context.Context, req Req) (Res, error) {
@@ -62,6 +65,13 @@ func (f *fakeAuth) DeleteApiKey(ctx context.Context, r *authpb.DeleteApiKeyReque
 }
 func (f *fakeAuth) GoogleAuth(ctx context.Context, r *authpb.GoogleAuthRequest) (*authpb.GoogleAuthResponse, error) {
 	return stub(f.googleAuth, ctx, r)
+}
+
+func (f *fakeAuth) RequestPasswordReset(ctx context.Context, r *authpb.RequestPasswordResetRequest) (*authpb.RequestPasswordResetResponse, error) {
+	return stub(f.requestPasswordReset, ctx, r)
+}
+func (f *fakeAuth) ResetPassword(ctx context.Context, r *authpb.ResetPasswordRequest) (*authpb.ResetPasswordResponse, error) {
+	return stub(f.resetPassword, ctx, r)
 }
 
 func (f *fakeAuth) ValidateToken(_ context.Context, r *authpb.ValidateTokenRequest) (*authpb.ValidateTokenResponse, error) {

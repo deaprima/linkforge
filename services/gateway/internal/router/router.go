@@ -28,6 +28,10 @@ type Handlers struct {
 
 	// VerifyRateLimit wajib diisi: POST /:alias/verify tanpa brute-force protection tidak boleh jalan
 	VerifyRateLimit gin.HandlerFunc
+
+	// ForgotRateLimit & ResetRateLimit wajib diisi: endpoint publik yang memicu email / mengubah password tidak boleh tanpa limit
+	ForgotRateLimit gin.HandlerFunc
+	ResetRateLimit  gin.HandlerFunc
 }
 
 type Options struct {
@@ -38,6 +42,9 @@ type Options struct {
 func New(h Handlers, opts Options) (*gin.Engine, error) {
 	if h.VerifyRateLimit == nil {
 		return nil, errors.New("router: VerifyRateLimit middleware is required")
+	}
+	if h.ForgotRateLimit == nil || h.ResetRateLimit == nil {
+		return nil, errors.New("router: ForgotRateLimit and ResetRateLimit middleware are required")
 	}
 	registerJSONTagNames()
 
@@ -67,6 +74,8 @@ func New(h Handlers, opts Options) (*gin.Engine, error) {
 	auth.POST("/register", h.Auth.Register)
 	auth.POST("/login", h.Auth.Login)
 	auth.POST("/refresh", h.Auth.Refresh)
+	auth.POST("/forgot-password", h.ForgotRateLimit, h.Auth.ForgotPassword)
+	auth.POST("/reset-password", h.ResetRateLimit, h.Auth.ResetPassword)
 	auth.GET("/oauth/google", h.Auth.GoogleLogin)
 	auth.GET("/oauth/google/callback", h.Auth.GoogleCallback)
 

@@ -28,6 +28,8 @@ type AuthService interface {
 	ListApiKeys(ctx context.Context, req *pb.ListApiKeysRequest) (*pb.ListApiKeysResponse, error)
 	DeleteApiKey(ctx context.Context, req *pb.DeleteApiKeyRequest) (*pb.DeleteApiKeyResponse, error)
 	GoogleAuth(ctx context.Context, req *pb.GoogleAuthRequest) (*pb.GoogleAuthResponse, error)
+	RequestPasswordReset(ctx context.Context, req *pb.RequestPasswordResetRequest) (*pb.RequestPasswordResetResponse, error)
+	ResetPassword(ctx context.Context, req *pb.ResetPasswordRequest) (*pb.ResetPasswordResponse, error)
 }
 
 type AuthHandler struct {
@@ -108,6 +110,15 @@ type refreshTokenRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+type forgotPasswordRequest struct {
+	Email string `json:"email" binding:"required,email,max=255"`
+}
+
+type resetPasswordRequest struct {
+	Token    string `json:"token" binding:"required,max=256"`
+	Password string `json:"password" binding:"required,min=8,max=72"` // bcrypt hanya membaca 72 byte pertama
+}
+
 type createApiKeyRequest struct {
 	Name string `json:"name" binding:"required,max=100"`
 }
@@ -133,6 +144,39 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 	h.respondSession(c, http.StatusCreated, res.GetUser(), res.GetTokens())
+}
+
+// POST /api/v1/auth/forgot-password
+// Balasan selalu sama baik email terdaftar maupun tidak, supaya endpoint ini tidak bisa dipakai
+// untuk mengecek siapa yang punya akun.
+func (h *AuthHandler) ForgotPassword(c *gin.Context) {
+	var req forgotPasswordRequest
+	if !bindJSON(c, &req, false) {
+		return
+	}
+	if _, err := h.auth.RequestPasswordReset(rpcContext(c), &pb.RequestPasswordResetRequest{Email: req.Email}); err != nil {
+		response.GRPCError(c, err, nil)
+		return
+	}
+	response.OK(c, http.StatusOK, gin.H{"message": "If that email is registered, a reset link is on its way."})
+}
+
+// POST /api/v1/auth/reset-password
+func (h *AuthHandler) ResetPassword(c *gin.Context) {
+	var req resetPasswordRequest
+	if !bindJSON(c, &req, false) {
+		return
+	}
+	_, err := h.auth.ResetPassword(rpcContext(c), &pb.ResetPasswordRequest{Token: req.Token, NewPassword: req.Password})
+	if err != nil {
+		response.GRPCError(c, err, response.Overrides{
+			codes.InvalidArgument: {Status: http.StatusBadRequest, Code: response.CodeInvalidResetToken},
+		})
+		return
+	}
+	// Semua refresh token user sudah dicabut; cookie sesi yang tersisa di browser ini tidak berguna lagi
+	h.cookies.clearTokens(c)
+	response.OK(c, http.StatusOK, gin.H{"message": "Your password has been changed. Sign in with the new password."})
 }
 
 // sessionModeHeader: web app mengirim "X-Session-Mode: cookie" supaya token tidak pernah ada di body

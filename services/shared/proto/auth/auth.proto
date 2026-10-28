@@ -125,6 +125,24 @@ message GoogleAuthResponse {
   TokenPair tokens = 2;
 }
 
+// Password reset — alur lupa password.
+// RequestPasswordReset selalu sukses (juga untuk email yang tidak terdaftar) supaya tidak membocorkan siapa yang punya akun.
+message RequestPasswordResetRequest {
+  string email = 1;
+}
+message RequestPasswordResetResponse {
+  bool success = 1;
+}
+
+// ResetPassword memakai token mentah dari email; token tidak valid/kedaluwarsa/terpakai = InvalidArgument.
+message ResetPasswordRequest {
+  string token        = 1;
+  string new_password = 2;
+}
+message ResetPasswordResponse {
+  bool success = 1;
+}
+
 // Service Definition
 
 service AuthService {
@@ -141,4 +159,7 @@ service AuthService {
   rpc ValidateApiKey(ValidateApiKeyRequest) returns (ValidateApiKeyResponse);
 
   rpc GoogleAuth(GoogleAuthRequest) returns (GoogleAuthResponse);
+
+  rpc RequestPasswordReset(RequestPasswordResetRequest) returns (RequestPasswordResetResponse);
+  rpc ResetPassword(ResetPasswordRequest)               returns (ResetPasswordResponse);
 }

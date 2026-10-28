@@ -1286,6 +1286,193 @@ func (x *GoogleAuthResponse) GetTokens() *TokenPair {
 	return nil
 }
 
+// Password reset — alur lupa password.
+// RequestPasswordReset selalu sukses (juga untuk email yang tidak terdaftar) supaya tidak membocorkan siapa yang punya akun.
+type RequestPasswordResetRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Email         string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RequestPasswordResetRequest) Reset() {
+	*x = RequestPasswordResetRequest{}
+	mi := &file_shared_proto_auth_auth_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RequestPasswordResetRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RequestPasswordResetRequest) ProtoMessage() {}
+
+func (x *RequestPasswordResetRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shared_proto_auth_auth_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RequestPasswordResetRequest.ProtoReflect.Descriptor instead.
+func (*RequestPasswordResetRequest) Descriptor() ([]byte, []int) {
+	return file_shared_proto_auth_auth_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *RequestPasswordResetRequest) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+type RequestPasswordResetResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RequestPasswordResetResponse) Reset() {
+	*x = RequestPasswordResetResponse{}
+	mi := &file_shared_proto_auth_auth_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RequestPasswordResetResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RequestPasswordResetResponse) ProtoMessage() {}
+
+func (x *RequestPasswordResetResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shared_proto_auth_auth_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RequestPasswordResetResponse.ProtoReflect.Descriptor instead.
+func (*RequestPasswordResetResponse) Descriptor() ([]byte, []int) {
+	return file_shared_proto_auth_auth_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *RequestPasswordResetResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+// ResetPassword memakai token mentah dari email; token tidak valid/kedaluwarsa/terpakai = InvalidArgument.
+type ResetPasswordRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	NewPassword   string                 `protobuf:"bytes,2,opt,name=new_password,json=newPassword,proto3" json:"new_password,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResetPasswordRequest) Reset() {
+	*x = ResetPasswordRequest{}
+	mi := &file_shared_proto_auth_auth_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResetPasswordRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResetPasswordRequest) ProtoMessage() {}
+
+func (x *ResetPasswordRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shared_proto_auth_auth_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResetPasswordRequest.ProtoReflect.Descriptor instead.
+func (*ResetPasswordRequest) Descriptor() ([]byte, []int) {
+	return file_shared_proto_auth_auth_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *ResetPasswordRequest) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
+func (x *ResetPasswordRequest) GetNewPassword() string {
+	if x != nil {
+		return x.NewPassword
+	}
+	return ""
+}
+
+type ResetPasswordResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResetPasswordResponse) Reset() {
+	*x = ResetPasswordResponse{}
+	mi := &file_shared_proto_auth_auth_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResetPasswordResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResetPasswordResponse) ProtoMessage() {}
+
+func (x *ResetPasswordResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shared_proto_auth_auth_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResetPasswordResponse.ProtoReflect.Descriptor instead.
+func (*ResetPasswordResponse) Descriptor() ([]byte, []int) {
+	return file_shared_proto_auth_auth_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *ResetPasswordResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
 var File_shared_proto_auth_auth_proto protoreflect.FileDescriptor
 
 const file_shared_proto_auth_auth_proto_rawDesc = "" +
@@ -1369,7 +1556,16 @@ const file_shared_proto_auth_auth_proto_rawDesc = "" +
 	"\x12GoogleAuthResponse\x12\x1e\n" +
 	"\x04user\x18\x01 \x01(\v2\n" +
 	".auth.UserR\x04user\x12'\n" +
-	"\x06tokens\x18\x02 \x01(\v2\x0f.auth.TokenPairR\x06tokens2\xd8\x05\n" +
+	"\x06tokens\x18\x02 \x01(\v2\x0f.auth.TokenPairR\x06tokens\"3\n" +
+	"\x1bRequestPasswordResetRequest\x12\x14\n" +
+	"\x05email\x18\x01 \x01(\tR\x05email\"8\n" +
+	"\x1cRequestPasswordResetResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"O\n" +
+	"\x14ResetPasswordRequest\x12\x14\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\x12!\n" +
+	"\fnew_password\x18\x02 \x01(\tR\vnewPassword\"1\n" +
+	"\x15ResetPasswordResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess2\x81\a\n" +
 	"\vAuthService\x129\n" +
 	"\bRegister\x12\x15.auth.RegisterRequest\x1a\x16.auth.RegisterResponse\x120\n" +
 	"\x05Login\x12\x12.auth.LoginRequest\x1a\x13.auth.LoginResponse\x12E\n" +
@@ -1382,7 +1578,9 @@ const file_shared_proto_auth_auth_proto_rawDesc = "" +
 	"\fDeleteApiKey\x12\x19.auth.DeleteApiKeyRequest\x1a\x1a.auth.DeleteApiKeyResponse\x12K\n" +
 	"\x0eValidateApiKey\x12\x1b.auth.ValidateApiKeyRequest\x1a\x1c.auth.ValidateApiKeyResponse\x12?\n" +
 	"\n" +
-	"GoogleAuth\x12\x17.auth.GoogleAuthRequest\x1a\x18.auth.GoogleAuthResponseB:Z8github.com/deaprima/linkforge/services/shared/proto/authb\x06proto3"
+	"GoogleAuth\x12\x17.auth.GoogleAuthRequest\x1a\x18.auth.GoogleAuthResponse\x12]\n" +
+	"\x14RequestPasswordReset\x12!.auth.RequestPasswordResetRequest\x1a\".auth.RequestPasswordResetResponse\x12H\n" +
+	"\rResetPassword\x12\x1a.auth.ResetPasswordRequest\x1a\x1b.auth.ResetPasswordResponseB:Z8github.com/deaprima/linkforge/services/shared/proto/authb\x06proto3"
 
 var (
 	file_shared_proto_auth_auth_proto_rawDescOnce sync.Once
@@ -1396,39 +1594,43 @@ func file_shared_proto_auth_auth_proto_rawDescGZIP() []byte {
 	return file_shared_proto_auth_auth_proto_rawDescData
 }
 
-var file_shared_proto_auth_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
+var file_shared_proto_auth_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 29)
 var file_shared_proto_auth_auth_proto_goTypes = []any{
-	(*User)(nil),                   // 0: auth.User
-	(*TokenPair)(nil),              // 1: auth.TokenPair
-	(*ApiKey)(nil),                 // 2: auth.ApiKey
-	(*RegisterRequest)(nil),        // 3: auth.RegisterRequest
-	(*RegisterResponse)(nil),       // 4: auth.RegisterResponse
-	(*LoginRequest)(nil),           // 5: auth.LoginRequest
-	(*LoginResponse)(nil),          // 6: auth.LoginResponse
-	(*RefreshTokenRequest)(nil),    // 7: auth.RefreshTokenRequest
-	(*RefreshTokenResponse)(nil),   // 8: auth.RefreshTokenResponse
-	(*LogoutRequest)(nil),          // 9: auth.LogoutRequest
-	(*LogoutResponse)(nil),         // 10: auth.LogoutResponse
-	(*ValidateTokenRequest)(nil),   // 11: auth.ValidateTokenRequest
-	(*ValidateTokenResponse)(nil),  // 12: auth.ValidateTokenResponse
-	(*GetUserRequest)(nil),         // 13: auth.GetUserRequest
-	(*GetUserResponse)(nil),        // 14: auth.GetUserResponse
-	(*CreateApiKeyRequest)(nil),    // 15: auth.CreateApiKeyRequest
-	(*CreateApiKeyResponse)(nil),   // 16: auth.CreateApiKeyResponse
-	(*ListApiKeysRequest)(nil),     // 17: auth.ListApiKeysRequest
-	(*ListApiKeysResponse)(nil),    // 18: auth.ListApiKeysResponse
-	(*DeleteApiKeyRequest)(nil),    // 19: auth.DeleteApiKeyRequest
-	(*DeleteApiKeyResponse)(nil),   // 20: auth.DeleteApiKeyResponse
-	(*ValidateApiKeyRequest)(nil),  // 21: auth.ValidateApiKeyRequest
-	(*ValidateApiKeyResponse)(nil), // 22: auth.ValidateApiKeyResponse
-	(*GoogleAuthRequest)(nil),      // 23: auth.GoogleAuthRequest
-	(*GoogleAuthResponse)(nil),     // 24: auth.GoogleAuthResponse
-	(*timestamppb.Timestamp)(nil),  // 25: google.protobuf.Timestamp
+	(*User)(nil),                         // 0: auth.User
+	(*TokenPair)(nil),                    // 1: auth.TokenPair
+	(*ApiKey)(nil),                       // 2: auth.ApiKey
+	(*RegisterRequest)(nil),              // 3: auth.RegisterRequest
+	(*RegisterResponse)(nil),             // 4: auth.RegisterResponse
+	(*LoginRequest)(nil),                 // 5: auth.LoginRequest
+	(*LoginResponse)(nil),                // 6: auth.LoginResponse
+	(*RefreshTokenRequest)(nil),          // 7: auth.RefreshTokenRequest
+	(*RefreshTokenResponse)(nil),         // 8: auth.RefreshTokenResponse
+	(*LogoutRequest)(nil),                // 9: auth.LogoutRequest
+	(*LogoutResponse)(nil),               // 10: auth.LogoutResponse
+	(*ValidateTokenRequest)(nil),         // 11: auth.ValidateTokenRequest
+	(*ValidateTokenResponse)(nil),        // 12: auth.ValidateTokenResponse
+	(*GetUserRequest)(nil),               // 13: auth.GetUserRequest
+	(*GetUserResponse)(nil),              // 14: auth.GetUserResponse
+	(*CreateApiKeyRequest)(nil),          // 15: auth.CreateApiKeyRequest
+	(*CreateApiKeyResponse)(nil),         // 16: auth.CreateApiKeyResponse
+	(*ListApiKeysRequest)(nil),           // 17: auth.ListApiKeysRequest
+	(*ListApiKeysResponse)(nil),          // 18: auth.ListApiKeysResponse
+	(*DeleteApiKeyRequest)(nil),          // 19: auth.DeleteApiKeyRequest
+	(*DeleteApiKeyResponse)(nil),         // 20: auth.DeleteApiKeyResponse
+	(*ValidateApiKeyRequest)(nil),        // 21: auth.ValidateApiKeyRequest
+	(*ValidateApiKeyResponse)(nil),       // 22: auth.ValidateApiKeyResponse
+	(*GoogleAuthRequest)(nil),            // 23: auth.GoogleAuthRequest
+	(*GoogleAuthResponse)(nil),           // 24: auth.GoogleAuthResponse
+	(*RequestPasswordResetRequest)(nil),  // 25: auth.RequestPasswordResetRequest
+	(*RequestPasswordResetResponse)(nil), // 26: auth.RequestPasswordResetResponse
+	(*ResetPasswordRequest)(nil),         // 27: auth.ResetPasswordRequest
+	(*ResetPasswordResponse)(nil),        // 28: auth.ResetPasswordResponse
+	(*timestamppb.Timestamp)(nil),        // 29: google.protobuf.Timestamp
 }
 var file_shared_proto_auth_auth_proto_depIdxs = []int32{
-	25, // 0: auth.User.created_at:type_name -> google.protobuf.Timestamp
-	25, // 1: auth.ApiKey.last_used_at:type_name -> google.protobuf.Timestamp
-	25, // 2: auth.ApiKey.created_at:type_name -> google.protobuf.Timestamp
+	29, // 0: auth.User.created_at:type_name -> google.protobuf.Timestamp
+	29, // 1: auth.ApiKey.last_used_at:type_name -> google.protobuf.Timestamp
+	29, // 2: auth.ApiKey.created_at:type_name -> google.protobuf.Timestamp
 	0,  // 3: auth.RegisterResponse.user:type_name -> auth.User
 	1,  // 4: auth.RegisterResponse.tokens:type_name -> auth.TokenPair
 	0,  // 5: auth.LoginResponse.user:type_name -> auth.User
@@ -1450,19 +1652,23 @@ var file_shared_proto_auth_auth_proto_depIdxs = []int32{
 	19, // 21: auth.AuthService.DeleteApiKey:input_type -> auth.DeleteApiKeyRequest
 	21, // 22: auth.AuthService.ValidateApiKey:input_type -> auth.ValidateApiKeyRequest
 	23, // 23: auth.AuthService.GoogleAuth:input_type -> auth.GoogleAuthRequest
-	4,  // 24: auth.AuthService.Register:output_type -> auth.RegisterResponse
-	6,  // 25: auth.AuthService.Login:output_type -> auth.LoginResponse
-	8,  // 26: auth.AuthService.RefreshToken:output_type -> auth.RefreshTokenResponse
-	10, // 27: auth.AuthService.Logout:output_type -> auth.LogoutResponse
-	12, // 28: auth.AuthService.ValidateToken:output_type -> auth.ValidateTokenResponse
-	14, // 29: auth.AuthService.GetUser:output_type -> auth.GetUserResponse
-	16, // 30: auth.AuthService.CreateApiKey:output_type -> auth.CreateApiKeyResponse
-	18, // 31: auth.AuthService.ListApiKeys:output_type -> auth.ListApiKeysResponse
-	20, // 32: auth.AuthService.DeleteApiKey:output_type -> auth.DeleteApiKeyResponse
-	22, // 33: auth.AuthService.ValidateApiKey:output_type -> auth.ValidateApiKeyResponse
-	24, // 34: auth.AuthService.GoogleAuth:output_type -> auth.GoogleAuthResponse
-	24, // [24:35] is the sub-list for method output_type
-	13, // [13:24] is the sub-list for method input_type
+	25, // 24: auth.AuthService.RequestPasswordReset:input_type -> auth.RequestPasswordResetRequest
+	27, // 25: auth.AuthService.ResetPassword:input_type -> auth.ResetPasswordRequest
+	4,  // 26: auth.AuthService.Register:output_type -> auth.RegisterResponse
+	6,  // 27: auth.AuthService.Login:output_type -> auth.LoginResponse
+	8,  // 28: auth.AuthService.RefreshToken:output_type -> auth.RefreshTokenResponse
+	10, // 29: auth.AuthService.Logout:output_type -> auth.LogoutResponse
+	12, // 30: auth.AuthService.ValidateToken:output_type -> auth.ValidateTokenResponse
+	14, // 31: auth.AuthService.GetUser:output_type -> auth.GetUserResponse
+	16, // 32: auth.AuthService.CreateApiKey:output_type -> auth.CreateApiKeyResponse
+	18, // 33: auth.AuthService.ListApiKeys:output_type -> auth.ListApiKeysResponse
+	20, // 34: auth.AuthService.DeleteApiKey:output_type -> auth.DeleteApiKeyResponse
+	22, // 35: auth.AuthService.ValidateApiKey:output_type -> auth.ValidateApiKeyResponse
+	24, // 36: auth.AuthService.GoogleAuth:output_type -> auth.GoogleAuthResponse
+	26, // 37: auth.AuthService.RequestPasswordReset:output_type -> auth.RequestPasswordResetResponse
+	28, // 38: auth.AuthService.ResetPassword:output_type -> auth.ResetPasswordResponse
+	26, // [26:39] is the sub-list for method output_type
+	13, // [13:26] is the sub-list for method input_type
 	13, // [13:13] is the sub-list for extension type_name
 	13, // [13:13] is the sub-list for extension extendee
 	0,  // [0:13] is the sub-list for field type_name
@@ -1479,7 +1685,7 @@ func file_shared_proto_auth_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shared_proto_auth_auth_proto_rawDesc), len(file_shared_proto_auth_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   25,
+			NumMessages:   29,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -3,14 +3,77 @@ openapi: 3.0.3
 info:
   title: LinkForge API
   description: |
-    API publik untuk LinkForge — Production-grade URL Shortener.
-    Semua request diproses melalui Gateway Service.
-    
-    ## Autentikasi
-    Tersedia dua metode autentikasi:
-    - **Bearer Token (JWT)**: Untuk akses via browser/FE. Token disimpan di HttpOnly Cookie setelah login/OAuth.
-    - **API Key**: Untuk akses programatik (CLI, bot, integrasi). Kirim via header `X-API-Key`.
+    LinkForge is an open source URL shortener built from Go microservices. This is its public HTTP API,
+    served by the Gateway. Everything the dashboard does, you can do from a script.
+
+    ## Quick start
+
+    1. Sign in to the dashboard and create an API key under **API keys**.
+    2. Send the key in the `X-API-Key` header.
+
+    ```bash
+    curl -X POST https://linkforge.deaprima.my.id/api/v1/links \
+      -H "X-API-Key: lf_sk_a3f9b2c1d4e5..." \
+      -H "Content-Type: application/json" \
+      -d '{"original_url": "https://example.com/a/very/long/url", "alias": "pitch"}'
+    ```
+
+    ## Authentication
+
+    | Method | Use it for | How |
+    |---|---|---|
+    | **API key** | Scripts, CLIs, CI | `X-API-Key: lf_sk_...` header. Works on link and analytics endpoints. Does not expire; revoke it from the dashboard. |
+    | **Bearer token** | Apps acting for a signed-in user | `Authorization: Bearer <access_token>` from `/auth/login`. Access tokens last 15 minutes; renew with `/auth/refresh`. |
+    | **Session cookie** | The LinkForge web app | HttpOnly `access_token` / `refresh_token` cookies set on sign-in. Browsers only. |
+
+    Account management endpoints (`/auth/me`, `/auth/api-keys`, `/auth/logout`) accept a bearer token or session
+    cookie only. API keys are for links and analytics, not for managing the account.
+
+    ## Response format
+
+    Every response from `/api/v1` uses the same envelope.
+
+    ```json
+    { "success": true, "data": { }, "meta": { "page": 1, "limit": 20, "total": 100 } }
+    ```
+
+    ```json
+    { "success": false, "error": { "code": "LINK_NOT_FOUND", "message": "The requested short link does not exist." } }
+    ```
+
+    `meta` appears only on paginated lists. Branch on `error.code`, which is stable; `error.message` is for humans.
+
+    ## Rate limits
+
+    Endpoints that are rate limited send these headers on every response, including `429`:
+
+    | Header | Meaning |
+    |---|---|
+    | `X-RateLimit-Limit` | Requests allowed in the window |
+    | `X-RateLimit-Remaining` | Requests left in the window |
+    | `X-RateLimit-Reset` | Unix time (seconds) when the window resets |
+    | `Retry-After` | Seconds to wait; only on `429` |
+
+    ## Error codes
+
+    | Code | HTTP | Meaning |
+    |---|---|---|
+    | `VALIDATION_ERROR` | 400 | The request body or a parameter is invalid |
+    | `MALICIOUS_URL` | 400 | The destination domain is on the blocklist |
+    | `INVALID_RESET_TOKEN` | 400 | A password reset link is invalid, expired or already used |
+    | `UNAUTHORIZED` | 401 | Missing or invalid credentials |
+    | `FORBIDDEN` | 403 | The resource belongs to someone else |
+    | `LINK_NOT_FOUND` | 404 | No such link or alias |
+    | `EMAIL_ALREADY_EXISTS` | 409 | The email is already registered |
+    | `ALIAS_ALREADY_TAKEN` | 409 | The alias is in use |
+    | `LINK_EXPIRED` | 410 | The link passed its expiry date |
+    | `RATE_LIMIT_EXCEEDED` | 429 | Too many requests |
+    | `SERVICE_UNAVAILABLE` | 503 | A backend service is down or its circuit breaker is open |
+    | `INTERNAL_ERROR` | 500 | Unexpected error |
   version: 1.0.0
+  license:
+    name: MIT
+    url: https://github.com/deaprima/linkforge/blob/main/LICENSE
   contact:
     name: Dea Prima
     url: https://github.com/deaprima/linkforge
@@ -19,9 +82,8 @@ servers:
   - url: https://linkforge.deaprima.my.id/api/v1
     description: Production
   - url: http://localhost:8080/api/v1
-    description: Local Development
+    description: Local development
 
-# Security Schemes
 components:
   securitySchemes:
     BearerAuth:
@@ -37,17 +99,7 @@ components:
       in: cookie
       name: access_token
 
-  # Reusable Schemas
   schemas:
-    SuccessResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-          example: true
-        data:
-          type: object
-
     ErrorResponse:
       type: object
       properties:
@@ -75,7 +127,7 @@ components:
           example: 20
         total:
           type: integer
-          example: 100
+          example: 42
 
     User:
       type: object
@@ -83,15 +135,18 @@ components:
         id:
           type: string
           format: uuid
+          example: 7b0f4a1e-5c1a-4d6e-9a5a-0c5d3f9b2e11
         name:
           type: string
           example: Dea Prima
         email:
           type: string
           format: email
+          example: dea@example.com
         created_at:
           type: string
           format: date-time
+          example: "2026-07-08T07:00:00Z"
 
     Link:
       type: object
@@ -99,19 +154,21 @@ components:
         id:
           type: string
           format: uuid
+          example: 3f2b8c1a-9d4e-4b7a-8c11-5e6f7a8b9c0d
         original_url:
           type: string
           format: uri
-          example: https://example.com/very/long/url
+          example: https://example.com/a/very/long/url
         alias:
           type: string
-          example: my-alias
+          example: pitch
         short_url:
           type: string
-          example: https://linkforge.deaprima.my.id/my-alias
+          format: uri
+          example: https://linkforge.deaprima.my.id/pitch
         click_count:
           type: integer
-          example: 42
+          example: 254
         has_password:
           type: boolean
           example: false
@@ -119,9 +176,15 @@ components:
           type: string
           format: date-time
           nullable: true
+          example: "2026-12-31T23:59:59Z"
         created_at:
           type: string
           format: date-time
+          example: "2026-07-08T07:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2026-07-08T07:00:00Z"
 
     ApiKey:
       type: object
@@ -129,21 +192,269 @@ components:
         id:
           type: string
           format: uuid
+          example: 9c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f
         name:
           type: string
-          example: My CLI Tool
+          example: CI pipeline
+        key_prefix:
+          type: string
+          description: First characters of the key, so you can recognise it. The full key is never shown again.
+          example: lf_sk_a3f9b2
         last_used_at:
           type: string
           format: date-time
           nullable: true
+          example: "2026-07-10T09:30:00Z"
         created_at:
           type: string
           format: date-time
+          example: "2026-07-08T07:00:00Z"
 
-  # Reusable Responses
+    TokenPair:
+      type: object
+      properties:
+        access_token:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        refresh_token:
+          type: string
+          example: 4f8a1c...
+
+    AuthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            user:
+              $ref: '#/components/schemas/User'
+            access_token:
+              type: string
+              example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+            refresh_token:
+              type: string
+              example: 4f8a1c...
+
+    TokenResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/TokenPair'
+
+    UserResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/User'
+
+    MessageResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            message:
+              type: string
+              example: If that email is registered, a reset link is on its way.
+
+    ApiKeyListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiKey'
+
+    CreatedApiKeyResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+              example: 9c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f
+            name:
+              type: string
+              example: CI pipeline
+            key:
+              type: string
+              description: The full key. Shown once; store it now.
+              example: lf_sk_a3f9b2c1d4e5f60718293a4b5c6d7e8f
+            created_at:
+              type: string
+              format: date-time
+              example: "2026-07-08T07:00:00Z"
+
+    LinkResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/Link'
+
+    LinkListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Link'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    AnalyticsSummaryResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            total_links:
+              type: integer
+              example: 42
+            total_clicks:
+              type: integer
+              example: 1280
+            top_links:
+              type: array
+              items:
+                type: object
+                properties:
+                  link_id:
+                    type: string
+                    format: uuid
+                    example: 3f2b8c1a-9d4e-4b7a-8c11-5e6f7a8b9c0d
+                  alias:
+                    type: string
+                    example: pitch
+                  clicks:
+                    type: integer
+                    example: 254
+
+    LinkAnalyticsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            link_id:
+              type: string
+              format: uuid
+              example: 3f2b8c1a-9d4e-4b7a-8c11-5e6f7a8b9c0d
+            total_clicks:
+              type: integer
+              example: 254
+            unique_clicks:
+              type: integer
+              example: 180
+            top_countries:
+              type: array
+              items:
+                type: object
+                properties:
+                  country:
+                    type: string
+                    description: ISO 3166-1 alpha-2 code, or `ZZ` when unknown.
+                    example: ID
+                  count:
+                    type: integer
+                    example: 120
+            top_browsers:
+              type: array
+              items:
+                type: object
+                properties:
+                  browser:
+                    type: string
+                    example: Chrome
+                  count:
+                    type: integer
+                    example: 200
+            top_devices:
+              type: array
+              items:
+                type: object
+                properties:
+                  device:
+                    type: string
+                    enum: [mobile, desktop, tablet, bot]
+                    example: mobile
+                  count:
+                    type: integer
+                    example: 180
+            time_series:
+              type: array
+              description: One entry per day in the range, including days with no clicks.
+              items:
+                type: object
+                properties:
+                  date:
+                    type: string
+                    format: date
+                    example: "2026-07-01"
+                  clicks:
+                    type: integer
+                    example: 30
+
+    RedirectUrlResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            redirect_url:
+              type: string
+              format: uri
+              example: https://example.com/a/very/long/url
+
   responses:
+    ValidationError:
+      description: The request is invalid. `error.message` says which field and why.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: VALIDATION_ERROR
+              message: password must be at least 8 characters
+
     Unauthorized:
-      description: Token tidak ada atau tidak valid.
+      description: Credentials are missing or invalid.
       content:
         application/json:
           schema:
@@ -155,7 +466,7 @@ components:
               message: Missing or invalid authentication token.
 
     Forbidden:
-      description: Akses ditolak — bukan pemilik resource.
+      description: The resource belongs to another account.
       content:
         application/json:
           schema:
@@ -167,7 +478,7 @@ components:
               message: You do not have access to this resource.
 
     NotFound:
-      description: Resource tidak ditemukan.
+      description: The resource does not exist.
       content:
         application/json:
           schema:
@@ -176,10 +487,28 @@ components:
             success: false
             error:
               code: LINK_NOT_FOUND
-              message: The requested resource does not exist.
+              message: The requested short link does not exist.
 
     RateLimitExceeded:
-      description: Terlalu banyak request.
+      description: Too many requests. Wait `Retry-After` seconds.
+      headers:
+        Retry-After:
+          description: Seconds until the window resets.
+          schema:
+            type: integer
+            example: 600
+        X-RateLimit-Limit:
+          schema:
+            type: integer
+            example: 5
+        X-RateLimit-Remaining:
+          schema:
+            type: integer
+            example: 0
+        X-RateLimit-Reset:
+          schema:
+            type: integer
+            example: 1720400000
       content:
         application/json:
           schema:
@@ -191,7 +520,7 @@ components:
               message: Too many requests. Please slow down.
 
     ServiceUnavailable:
-      description: Backend service tidak tersedia (circuit breaker open).
+      description: A backend service is unavailable (its circuit breaker is open). Retry shortly.
       content:
         application/json:
           schema:
@@ -200,17 +529,18 @@ components:
             success: false
             error:
               code: SERVICE_UNAVAILABLE
-              message: The service is temporarily unavailable. Please try again later.
+              message: Service is temporarily unavailable, please try again later.
 
-
-# Paths
 paths:
 
   # Auth
   /auth/register:
     post:
       tags: [Auth]
-      summary: Register akun baru
+      summary: Create an account
+      description: |
+        Registers an account with email and password and signs the user in. Emails are case-insensitive.
+        Browsers also receive session cookies; send `X-Session-Mode: cookie` to keep tokens out of the body.
       operationId: registerUser
       requestBody:
         required: true
@@ -222,42 +552,29 @@ paths:
               properties:
                 name:
                   type: string
+                  maxLength: 100
                   example: Dea Prima
                 email:
                   type: string
                   format: email
+                  maxLength: 255
                   example: dea@example.com
                 password:
                   type: string
                   minLength: 8
-                  example: "strongpassword"
+                  maxLength: 72
+                  example: correct-horse-battery
       responses:
         '201':
-          description: Registrasi berhasil.
+          description: Account created.
           content:
             application/json:
               schema:
-                allOf:
-                  - $ref: '#/components/schemas/SuccessResponse'
-                  - type: object
-                    properties:
-                      data:
-                        type: object
-                        properties:
-                          user:
-                            $ref: '#/components/schemas/User'
-                          access_token:
-                            type: string
-                          refresh_token:
-                            type: string
+                $ref: '#/components/schemas/AuthResponse'
         '400':
-          description: Validasi gagal.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+          $ref: '#/components/responses/ValidationError'
         '409':
-          description: Email sudah terdaftar.
+          description: The email is already registered.
           content:
             application/json:
               schema:
@@ -267,13 +584,11 @@ paths:
                 error:
                   code: EMAIL_ALREADY_EXISTS
                   message: This email is already registered.
-        '429':
-          $ref: '#/components/responses/RateLimitExceeded'
 
   /auth/login:
     post:
       tags: [Auth]
-      summary: Login dengan email dan password
+      summary: Sign in with email and password
       operationId: loginUser
       requestBody:
         required: true
@@ -286,36 +601,141 @@ paths:
                 email:
                   type: string
                   format: email
+                  example: dea@example.com
                 password:
                   type: string
+                  example: correct-horse-battery
       responses:
         '200':
-          description: Login berhasil.
+          description: Signed in.
           content:
             application/json:
               schema:
-                allOf:
-                  - $ref: '#/components/schemas/SuccessResponse'
-                  - type: object
-                    properties:
-                      data:
-                        type: object
-                        properties:
-                          user:
-                            $ref: '#/components/schemas/User'
-                          access_token:
-                            type: string
-                          refresh_token:
-                            type: string
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: Email or password is incorrect.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error:
+                  code: UNAUTHORIZED
+                  message: invalid credentials
+
+  /auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Request a password reset email
+      description: |
+        Emails a single-use reset link that is valid for one hour. The response is always the same whether or not
+        the email is registered, so this endpoint cannot be used to find out who has an account.
+
+        Requesting again invalidates earlier links. Accounts created with Google can use this to set a password.
+
+        Rate limited per IP; the limit headers are sent on every response.
+      operationId: forgotPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: dea@example.com
+      responses:
+        '200':
+          description: Accepted. If the email is registered, a link has been sent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
         '429':
           $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Set a new password with a reset token
+      description: |
+        Completes a reset started by `/auth/forgot-password`. The `token` is the value in the emailed link
+        (`/app/reset-password?token=...`). A token works once.
+
+        On success every existing session is revoked, so the user must sign in again with the new password.
+      operationId: resetPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              properties:
+                token:
+                  type: string
+                  example: 9f2c4e7a1b3d5f60718293a4b5c6d7e8f9a0b1c2d3e4f5061728394a5b6c7d8e
+                password:
+                  type: string
+                  minLength: 8
+                  maxLength: 72
+                  example: a-new-strong-password
+      responses:
+        '200':
+          description: Password changed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              example:
+                success: true
+                data:
+                  message: Your password has been changed. Sign in with the new password.
+        '400':
+          description: The token is invalid, expired or already used, or the password is too short.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidToken:
+                  summary: Bad token
+                  value:
+                    success: false
+                    error:
+                      code: INVALID_RESET_TOKEN
+                      message: This reset link is invalid or has expired.
+                validation:
+                  summary: Bad password
+                  value:
+                    success: false
+                    error:
+                      code: VALIDATION_ERROR
+                      message: password must be at least 8 characters
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
 
   /auth/refresh:
     post:
       tags: [Auth]
-      summary: Refresh access token
+      summary: Get a new access token
+      description: |
+        Exchanges a refresh token for a new pair. The old refresh token is revoked (rotation). Reusing a revoked
+        token revokes every session of that account.
+
+        Browsers can omit the body: the refresh cookie is used and the response is `204`.
       operationId: refreshToken
       requestBody:
         required: true
@@ -327,30 +747,22 @@ paths:
               properties:
                 refresh_token:
                   type: string
+                  example: 4f8a1c...
       responses:
         '200':
-          description: Token berhasil diperbarui.
+          description: New token pair.
           content:
             application/json:
               schema:
-                allOf:
-                  - $ref: '#/components/schemas/SuccessResponse'
-                  - type: object
-                    properties:
-                      data:
-                        type: object
-                        properties:
-                          access_token:
-                            type: string
-                          refresh_token:
-                            type: string
+                $ref: '#/components/schemas/TokenResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
   /auth/logout:
     post:
       tags: [Auth]
-      summary: Logout dan cabut refresh token
+      summary: Sign out
+      description: Revokes the given refresh token.
       operationId: logoutUser
       security:
         - BearerAuth: []
@@ -365,49 +777,45 @@ paths:
               properties:
                 refresh_token:
                   type: string
+                  example: 4f8a1c...
       responses:
         '204':
-          description: Logout berhasil.
+          description: Signed out.
         '401':
           $ref: '#/components/responses/Unauthorized'
 
   /auth/me:
     get:
       tags: [Auth]
-      summary: Profil user yang sedang login
+      summary: Get the signed-in user
       operationId: getMe
       security:
         - BearerAuth: []
         - CookieAuth: []
       responses:
         '200':
-          description: Data profil user.
+          description: The user's profile.
           content:
             application/json:
               schema:
-                allOf:
-                  - $ref: '#/components/schemas/SuccessResponse'
-                  - type: object
-                    properties:
-                      data:
-                        $ref: '#/components/schemas/User'
+                $ref: '#/components/schemas/UserResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
   /auth/oauth/google:
     get:
       tags: [Auth - OAuth]
-      summary: Mulai alur Google OAuth
+      summary: Start Google sign-in
+      description: Redirects the browser to Google's consent screen. No body. Available only when Google OAuth is configured.
       operationId: oauthGoogle
-      description: Redirect user ke halaman consent Google. Tidak memerlukan body.
       responses:
         '302':
-          description: Redirect ke Google OAuth page.
+          description: Redirect to Google.
 
   /auth/oauth/google/callback:
     get:
       tags: [Auth - OAuth]
-      summary: Callback dari Google setelah user memberikan izin
+      summary: Google redirects here after consent
       operationId: oauthGoogleCallback
       parameters:
         - name: code
@@ -423,7 +831,8 @@ paths:
       responses:
         '302':
           description: |
-            Redirect ke `{FRONTEND_URL}/app/dashboard` (gagal: `/app/login?error=<reason>`). Token dikirim via HttpOnly Cookie:
+            Redirects to `{FRONTEND_URL}/app/dashboard`, or to `/app/login?error=<reason>` on failure.
+            Session cookies are set:
             - `access_token`: HttpOnly; Secure; SameSite=Lax; Path=/
             - `refresh_token`: HttpOnly; Secure; SameSite=Lax; Path=/api/v1/auth
           headers:
@@ -432,12 +841,13 @@ paths:
                 type: string
                 example: "access_token=eyJ...; HttpOnly; Secure; SameSite=Lax; Path=/"
         '400':
-          description: OAuth callback tidak valid.
+          description: The callback is invalid.
 
   /auth/api-keys:
     post:
       tags: [Auth - API Keys]
-      summary: Generate API Key baru
+      summary: Create an API key
+      description: The full key is returned once, in this response. LinkForge stores only a hash.
       operationId: createApiKey
       security:
         - BearerAuth: []
@@ -452,56 +862,43 @@ paths:
               properties:
                 name:
                   type: string
-                  example: My CLI Tool
+                  maxLength: 100
+                  description: Where you will use it, so you know which key to revoke later.
+                  example: CI pipeline
       responses:
         '201':
-          description: API Key berhasil dibuat. Key hanya ditampilkan sekali.
+          description: Key created.
           content:
             application/json:
               schema:
-                allOf:
-                  - $ref: '#/components/schemas/SuccessResponse'
-                  - type: object
-                    properties:
-                      data:
-                        allOf:
-                          - $ref: '#/components/schemas/ApiKey'
-                          - type: object
-                            properties:
-                              key:
-                                type: string
-                                example: "lf_sk_xxxxx"
+                $ref: '#/components/schemas/CreatedApiKeyResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
     get:
       tags: [Auth - API Keys]
-      summary: Daftar API Key milik user
+      summary: List your API keys
       operationId: listApiKeys
       security:
         - BearerAuth: []
         - CookieAuth: []
       responses:
         '200':
-          description: Daftar API Key.
+          description: Your keys, without the secret part.
           content:
             application/json:
               schema:
-                allOf:
-                  - $ref: '#/components/schemas/SuccessResponse'
-                  - type: object
-                    properties:
-                      data:
-                        type: array
-                        items:
-                          $ref: '#/components/schemas/ApiKey'
+                $ref: '#/components/schemas/ApiKeyListResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
   /auth/api-keys/{id}:
     delete:
       tags: [Auth - API Keys]
-      summary: Hapus/cabut API Key
+      summary: Revoke an API key
+      description: The key stops working immediately. Your other keys are not affected.
       operationId: deleteApiKey
       security:
         - BearerAuth: []
@@ -515,7 +912,7 @@ paths:
             format: uuid
       responses:
         '204':
-          description: API Key berhasil dihapus.
+          description: Key revoked.
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -525,12 +922,12 @@ paths:
   /links:
     post:
       tags: [Links]
-      summary: Buat short link baru
+      summary: Create a short link
       operationId: createLink
       security:
+        - ApiKeyAuth: []
         - BearerAuth: []
         - CookieAuth: []
-        - ApiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -542,40 +939,47 @@ paths:
                 original_url:
                   type: string
                   format: uri
-                  example: https://example.com/very/long/url
+                  description: Must start with `http://` or `https://`.
+                  example: https://example.com/a/very/long/url
                 alias:
                   type: string
-                  example: my-alias
-                  description: Opsional. Jika tidak diisi, sistem generate otomatis.
+                  description: "Optional. 3 to 64 characters: letters, numbers, `-` and `_`. Generated when omitted."
+                  example: pitch
                 expired_at:
                   type: string
                   format: date-time
                   nullable: true
-                  description: Opsional. Batas waktu link aktif.
+                  description: Optional. The link stops working after this time.
+                  example: "2026-12-31T23:59:59Z"
                 password:
                   type: string
-                  description: Opsional. Password untuk memproteksi link (v1.5).
-                  example: "secret123"
+                  minLength: 4
+                  maxLength: 72
+                  description: Optional. Visitors must enter it before they are redirected.
+                  example: secret123
       responses:
         '201':
-          description: Link berhasil dibuat.
+          description: Link created.
           content:
             application/json:
               schema:
-                allOf:
-                  - $ref: '#/components/schemas/SuccessResponse'
-                  - type: object
-                    properties:
-                      data:
-                        $ref: '#/components/schemas/Link'
+                $ref: '#/components/schemas/LinkResponse'
         '400':
-          description: URL tidak valid atau terdeteksi berbahaya.
+          description: The request is invalid, or the destination domain is blocked.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               examples:
+                validation:
+                  summary: Invalid field
+                  value:
+                    success: false
+                    error:
+                      code: VALIDATION_ERROR
+                      message: original_url must be a valid http(s) URL
                 malicious:
+                  summary: Blocked domain
                   value:
                     success: false
                     error:
@@ -584,7 +988,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '409':
-          description: Alias sudah digunakan.
+          description: The alias is already taken.
           content:
             application/json:
               schema:
@@ -594,59 +998,51 @@ paths:
                 error:
                   code: ALIAS_ALREADY_TAKEN
                   message: This alias is already in use.
-        '429':
-          $ref: '#/components/responses/RateLimitExceeded'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
 
     get:
       tags: [Links]
-      summary: Daftar link milik user (dengan pagination)
+      summary: List your links
+      description: Newest first.
       operationId: listLinks
       security:
+        - ApiKeyAuth: []
         - BearerAuth: []
         - CookieAuth: []
-        - ApiKeyAuth: []
       parameters:
         - name: page
           in: query
           schema:
             type: integer
             default: 1
+            minimum: 1
         - name: limit
           in: query
           schema:
             type: integer
             default: 20
+            minimum: 1
             maximum: 100
       responses:
         '200':
-          description: Daftar link.
+          description: A page of links.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Link'
-                  meta:
-                    $ref: '#/components/schemas/PaginationMeta'
+                $ref: '#/components/schemas/LinkListResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
   /links/{id}:
     get:
       tags: [Links]
-      summary: Detail sebuah link
+      summary: Get a link
       operationId: getLink
       security:
+        - ApiKeyAuth: []
         - BearerAuth: []
         - CookieAuth: []
-        - ApiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -656,16 +1052,11 @@ paths:
             format: uuid
       responses:
         '200':
-          description: Detail link.
+          description: The link.
           content:
             application/json:
               schema:
-                allOf:
-                  - $ref: '#/components/schemas/SuccessResponse'
-                  - type: object
-                    properties:
-                      data:
-                        $ref: '#/components/schemas/Link'
+                $ref: '#/components/schemas/LinkResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -675,12 +1066,14 @@ paths:
 
     put:
       tags: [Links]
-      summary: Update sebuah link
+      summary: Update a link
+      description: |
+        Replaces the link's settings. Omitting `expired_at` removes the expiry. The password cannot be changed here.
       operationId: updateLink
       security:
+        - ApiKeyAuth: []
         - BearerAuth: []
         - CookieAuth: []
-        - ApiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -698,24 +1091,24 @@ paths:
                 original_url:
                   type: string
                   format: uri
+                  example: https://example.com/a/new/destination
                 alias:
                   type: string
+                  example: pitch
                 expired_at:
                   type: string
                   format: date-time
                   nullable: true
+                  example: "2026-12-31T23:59:59Z"
       responses:
         '200':
-          description: Link berhasil diupdate.
+          description: Link updated.
           content:
             application/json:
               schema:
-                allOf:
-                  - $ref: '#/components/schemas/SuccessResponse'
-                  - type: object
-                    properties:
-                      data:
-                        $ref: '#/components/schemas/Link'
+                $ref: '#/components/schemas/LinkResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -723,16 +1116,26 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          description: Alias baru sudah dipakai.
+          description: The new alias is already taken.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error:
+                  code: ALIAS_ALREADY_TAKEN
+                  message: This alias is already in use.
 
     delete:
       tags: [Links]
-      summary: Hapus sebuah link
+      summary: Delete a link
+      description: The short link stops working immediately and its alias becomes available again.
       operationId: deleteLink
       security:
+        - ApiKeyAuth: []
         - BearerAuth: []
         - CookieAuth: []
-        - ApiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -742,7 +1145,7 @@ paths:
             format: uuid
       responses:
         '204':
-          description: Link berhasil dihapus.
+          description: Link deleted.
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -753,12 +1156,12 @@ paths:
   /links/{id}/qr:
     get:
       tags: [Links]
-      summary: Generate QR Code untuk short link (v1.5)
+      summary: Get a QR code for a link
       operationId: getLinkQr
       security:
+        - ApiKeyAuth: []
         - BearerAuth: []
         - CookieAuth: []
-        - ApiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -768,7 +1171,7 @@ paths:
             format: uuid
         - name: size
           in: query
-          description: Ukuran QR Code dalam piksel.
+          description: Width and height in pixels.
           schema:
             type: integer
             default: 256
@@ -776,14 +1179,13 @@ paths:
             maximum: 1024
         - name: format
           in: query
-          description: Format gambar QR Code.
           schema:
             type: string
             enum: [png, svg]
             default: png
       responses:
         '200':
-          description: QR Code image binary.
+          description: The QR code image.
           content:
             image/png:
               schema:
@@ -794,7 +1196,11 @@ paths:
                 type: string
                 format: binary
         '400':
-          description: "`size` di luar rentang 64–1024 atau `format` tidak dikenal."
+          description: "`size` is outside 64 to 1024, or `format` is not `png` or `svg`."
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -806,55 +1212,34 @@ paths:
   /analytics/summary:
     get:
       tags: [Analytics]
-      summary: Ringkasan analytics keseluruhan akun user
+      summary: Get totals across your account
       operationId: getAnalyticsSummary
       security:
+        - ApiKeyAuth: []
         - BearerAuth: []
         - CookieAuth: []
-        - ApiKeyAuth: []
       responses:
         '200':
-          description: Ringkasan analytics.
+          description: Totals and your top links.
           content:
             application/json:
               schema:
-                allOf:
-                  - $ref: '#/components/schemas/SuccessResponse'
-                  - type: object
-                    properties:
-                      data:
-                        type: object
-                        properties:
-                          total_links:
-                            type: integer
-                            example: 10
-                          total_clicks:
-                            type: integer
-                            example: 1280
-                          top_links:
-                            type: array
-                            items:
-                              type: object
-                              properties:
-                                link_id:
-                                  type: string
-                                  format: uuid
-                                alias:
-                                  type: string
-                                clicks:
-                                  type: integer
+                $ref: '#/components/schemas/AnalyticsSummaryResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
 
   /analytics/links/{id}:
     get:
       tags: [Analytics]
-      summary: Analytics detail untuk sebuah link
+      summary: Get click statistics for a link
+      description: Defaults to the last 30 days. The range can span at most 366 days.
       operationId: getLinkAnalytics
       security:
+        - ApiKeyAuth: []
         - BearerAuth: []
         - CookieAuth: []
-        - ApiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -864,126 +1249,79 @@ paths:
             format: uuid
         - name: from
           in: query
-          description: Tanggal awal filter (ISO 8601).
+          description: First day, inclusive (`YYYY-MM-DD`).
           schema:
             type: string
             format: date
             example: "2026-07-01"
         - name: to
           in: query
-          description: Tanggal akhir filter (ISO 8601).
+          description: Last day, inclusive (`YYYY-MM-DD`).
           schema:
             type: string
             format: date
             example: "2026-07-31"
       responses:
         '200':
-          description: Analytics detail link.
+          description: Click statistics.
           content:
             application/json:
               schema:
-                allOf:
-                  - $ref: '#/components/schemas/SuccessResponse'
-                  - type: object
-                    properties:
-                      data:
-                        type: object
-                        properties:
-                          link_id:
-                            type: string
-                            format: uuid
-                          total_clicks:
-                            type: integer
-                            example: 254
-                          unique_clicks:
-                            type: integer
-                            example: 180
-                          top_countries:
-                            type: array
-                            items:
-                              type: object
-                              properties:
-                                country:
-                                  type: string
-                                  example: ID
-                                count:
-                                  type: integer
-                          top_browsers:
-                            type: array
-                            items:
-                              type: object
-                              properties:
-                                browser:
-                                  type: string
-                                count:
-                                  type: integer
-                          top_devices:
-                            type: array
-                            items:
-                              type: object
-                              properties:
-                                device:
-                                  type: string
-                                count:
-                                  type: integer
-                          time_series:
-                            type: array
-                            items:
-                              type: object
-                              properties:
-                                date:
-                                  type: string
-                                  format: date
-                                clicks:
-                                  type: integer
+                $ref: '#/components/schemas/LinkAnalyticsResponse'
         '400':
-          description: Format tanggal tidak valid, `from` setelah `to`, atau rentang lebih dari 366 hari.
+          description: A date is malformed, `from` is after `to`, or the range is longer than 366 days.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
 
   /analytics/realtime:
     get:
       tags: [Analytics]
-      summary: WebSocket stream untuk event klik realtime (v1.5)
+      summary: Stream clicks as they happen (WebSocket)
       description: |
-        Membuka koneksi WebSocket untuk mendengarkan event klik secara realtime.
-        Access token (JWT) dikirim via query `token`, cookie `access_token`, atau header
-        `Authorization: Bearer`. API Key tidak berlaku. Origin browser harus termasuk
-        CORS_ALLOWED_ORIGINS. Server mengirim ping tiap 30 detik.
+        Upgrades to a WebSocket that sends one JSON event per click on your links. Authenticate with a bearer
+        token in the `token` query parameter, the `access_token` cookie, or an `Authorization` header. API keys
+        do not work here. Browser origins must be listed in `CORS_ALLOWED_ORIGINS`. The server pings every 30 seconds.
       operationId: getRealtimeAnalytics
       parameters:
         - name: token
           in: query
-          required: false
-          description: Access token (JWT). Di-redact dari access log Gateway.
+          description: Access token (JWT). Redacted from Gateway access logs.
           schema:
             type: string
       responses:
         '101':
-          description: Koneksi berhasil diupgrade ke WebSocket.
+          description: Switching to WebSocket.
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
-          description: Origin tidak diizinkan.
+          description: The origin is not allowed.
 
-  # Redirects (Served at Root)
+  # Redirects (served at the root, outside /api/v1)
   /{alias}:
     get:
+      tags: [Redirect]
       servers:
         - url: https://linkforge.deaprima.my.id
-          description: Production Root
+          description: Production
         - url: http://localhost:8080
-          description: Local Development Root
-      summary: Redirect ke URL asli berdasarkan alias
+          description: Local development
+      summary: Open a short link
       description: |
-        Redirect temporary (302) ke URL asli, atau meminta password jika dilindungi.
-        Untuk browser (`Accept: text/html`), respons non-redirect diganti 302 ke web app:
-        password → `/app/p/{alias}`, tidak ada → `/app/not-found?alias=`, expired → `/app/expired?alias=`,
-        backend tidak tersedia → `/app/unavailable?alias=`.
+        Redirects (302) to the destination. Public, no authentication.
+
+        When the request comes from a browser (`Accept: text/html`), anything other than a redirect becomes a 302
+        to the web app instead: password protected → `/app/p/{alias}`, missing → `/app/not-found?alias=`,
+        expired → `/app/expired?alias=`, backend down → `/app/unavailable?alias=`.
       operationId: resolveRedirect
       parameters:
         - name: alias
@@ -991,17 +1329,17 @@ paths:
           required: true
           schema:
             type: string
-            example: my-alias
+            example: pitch
       responses:
         '302':
-          description: Redirect ke URL tujuan.
+          description: Redirect to the destination.
           headers:
             Location:
               schema:
                 type: string
-                example: https://example.com/very/long/url
+                example: https://example.com/a/very/long/url
         '200':
-          description: Link dilindungi password. Membutuhkan verifikasi.
+          description: The link is password protected. Call `POST /{alias}/verify`.
           content:
             application/json:
               schema:
@@ -1014,7 +1352,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '410':
-          description: Link sudah kadaluarsa (expired).
+          description: The link has expired.
           content:
             application/json:
               schema:
@@ -1027,12 +1365,17 @@ paths:
 
   /{alias}/verify:
     post:
+      tags: [Redirect]
       servers:
         - url: https://linkforge.deaprima.my.id
-          description: Production Root
+          description: Production
         - url: http://localhost:8080
-          description: Local Development Root
-      summary: Verifikasi password untuk link yang dilindungi (v1.5)
+          description: Local development
+      summary: Unlock a password protected link
+      description: |
+        Checks the password and returns the destination. Brute-force protected: by default 5 attempts per
+        15 minutes per IP and alias, and 20 per 15 minutes per IP. Rate limit headers are on every response.
+        If the limiter is unavailable the request is refused (fail-closed).
       operationId: verifyLinkPassword
       parameters:
         - name: alias
@@ -1040,6 +1383,7 @@ paths:
           required: true
           schema:
             type: string
+            example: pitch
       requestBody:
         required: true
         content:
@@ -1050,26 +1394,16 @@ paths:
               properties:
                 password:
                   type: string
-                  example: "secret123"
+                  example: secret123
       responses:
         '200':
-          description: Verifikasi berhasil. Mengembalikan URL tujuan.
+          description: Correct password.
           content:
             application/json:
               schema:
-                allOf:
-                  - $ref: '#/components/schemas/SuccessResponse'
-                  - type: object
-                    properties:
-                      data:
-                        type: object
-                        properties:
-                          redirect_url:
-                            type: string
-                            format: uri
-                            example: https://example.com/very/long/url
+                $ref: '#/components/schemas/RedirectUrlResponse'
         '401':
-          description: Password salah.
+          description: Wrong password.
           content:
             application/json:
               schema:
@@ -1078,16 +1412,17 @@ paths:
                 success: false
                 error:
                   code: UNAUTHORIZED
-                  message: Incorrect password.
+                  message: Invalid password.
         '404':
           $ref: '#/components/responses/NotFound'
         '410':
-          description: Link sudah kadaluarsa (expired).
+          description: The link has expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '429':
-          description: |
-            Batas percobaan terlampaui (default 5/15 menit per IP+alias, 20/15 menit per IP).
-            Header `Retry-After` berisi detik sampai window berikutnya. Semua respons endpoint
-            ini menyertakan header `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`.
+          description: Too many attempts. See `Retry-After`.
           content:
             application/json:
               schema:
@@ -1098,17 +1433,67 @@ paths:
                   code: RATE_LIMIT_EXCEEDED
                   message: Too many password attempts. Try again later.
         '503':
-          description: Rate limiter (Redis) tidak tersedia — verifikasi ditolak (fail-closed).
+          $ref: '#/components/responses/ServiceUnavailable'
 
-# Tags (untuk pengelompokan di Swagger UI)
+  # Operations
+  /healthz:
+    get:
+      tags: [Operations]
+      servers:
+        - url: http://localhost:8080
+          description: Local development
+      summary: Liveness check
+      description: Returns `200` while the Gateway process is up. Not wrapped in the response envelope.
+      operationId: healthz
+      responses:
+        '200':
+          description: The Gateway is running.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /readyz:
+    get:
+      tags: [Operations]
+      servers:
+        - url: http://localhost:8080
+          description: Local development
+      summary: Readiness check
+      description: |
+        Checks that Auth, Link, Analytics and Redis can be reached. `200` when all are healthy, `503` otherwise.
+        Not wrapped in the response envelope.
+      operationId: readyz
+      responses:
+        '200':
+          description: Every dependency is healthy.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+        '503':
+          description: At least one dependency is unavailable.
+
 tags:
   - name: Auth
-    description: Register, login, logout, dan token management.
+    description: Create accounts, sign in, reset passwords and manage sessions.
   - name: Auth - OAuth
-    description: Alur OAuth menggunakan Google.
+    description: Sign in with Google.
   - name: Auth - API Keys
-    description: Generate dan kelola API Key untuk akses programatik.
+    description: Create and revoke API keys for scripts and CI.
   - name: Links
-    description: CRUD untuk manajemen short link.
+    description: Create, read, update and delete short links, and download QR codes.
   - name: Analytics
-    description: Data dan statistik klik per link maupun keseluruhan akun.
+    description: Click statistics for a link or your whole account, and a live click stream.
+  - name: Redirect
+    description: The public short link itself, served from the root of the domain.
+  - name: Operations
+    description: Health checks for monitoring.
