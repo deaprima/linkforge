@@ -8,7 +8,7 @@ import { LinksPage } from "@/pages/app/LinksPage";
 import { OverviewPage } from "@/pages/app/OverviewPage";
 import { ProfilePage } from "@/pages/app/ProfilePage";
 import { RegisterPage, SignInPage } from "@/pages/auth/AuthPages";
-import { PendingPage } from "@/pages/PendingPage";
+import { LandingPage } from "@/pages/landing/LandingPage";
 import { ExpiredPage, NotFoundPage, PasswordGatePage, UnavailablePage } from "@/pages/public/PublicPages";
 
 /*
@@ -19,7 +19,7 @@ import { ExpiredPage, NotFoundPage, PasswordGatePage, UnavailablePage } from "@/
  * sebagai target redirect — jangan diganti tanpa mengubah gateway/internal/handler/webpaths.go.
  */
 export const router = createBrowserRouter([
-  { path: "/", element: <PendingPage title="Landing page" /> },
+  { path: "/", element: <LandingPage /> },
   { path: "/app", element: <Navigate to="/app/dashboard" replace /> },
   { path: "/app/login", element: <GuestOnly><SignInPage /></GuestOnly> },
   { path: "/app/register", element: <GuestOnly><RegisterPage /></GuestOnly> },

@@ -96,6 +96,18 @@
   --color-ring: var(--ring);
 }
 
+/* Latar grid 24px landing page (Figma "Grid"): garis 1px tiap 24px, warna token grid. */
+/* Gutter samping: 40px, melebar di layar besar supaya isi tetap di tengah (maks 1312px) sementara garis bagian penuh lebar. */
+@utility px-gutter {
+  padding-inline: max(2.5rem, calc((100% - 1312px) / 2));
+}
+
+.sheet-grid {
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-position: 24px 24px;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

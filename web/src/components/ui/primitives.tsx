@@ -11,7 +11,7 @@ import { forwardRef, useId, type AnchorHTMLAttributes, type ButtonHTMLAttributes
 
 type ButtonStyle = { variant?: "solid" | "outline"; size?: "md" | "sm" };
 
-function buttonClass({ variant = "solid", size = "md" }: ButtonStyle, className?: string) {
+export function buttonClass({ variant = "solid", size = "md" }: ButtonStyle, className?: string) {
   return cn(
     "inline-flex cursor-pointer items-center justify-center gap-2 border-[1.5px] border-ink font-semibold whitespace-nowrap",
     "transition-opacity disabled:cursor-not-allowed disabled:opacity-50",

@@ -17,7 +17,7 @@ import dotLight from "@/assets/brand/status-dot-light.svg";
  * yang ditukar via CSS (tanpa JS, tanpa kedipan saat ganti tema).
  */
 
-function Themed({ light, dark, className }: { light: string; dark: string; className: string }) {
+export function Themed({ light, dark, className }: { light: string; dark: string; className: string }) {
   return (
     <span aria-hidden className={cn("relative inline-block shrink-0", className)}>
       <img alt="" src={light} className="absolute inset-0 size-full dark:hidden" />
