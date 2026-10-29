@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "cn";
 import { useState, type FormEvent, type ReactNode } from "react";
+import { Link } from "react-router";
 import { toast } from "sonner";
 import { CloseIcon } from "@/components/brand/Icons";
 import { Kliko } from "@/components/brand/Kliko";
 import { PageHeader, PanelMessage } from "@/components/layout/AppLayout";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle, sheetClass } from "@/components/ui/dialog";
-import { Button, Field } from "@/components/ui/primitives";
+import { Button, buttonClass, Field } from "@/components/ui/primitives";
 import { ApiError, request, type ApiKey, type CreatedApiKey } from "@/lib/api";
 import { formatDate, timeAgo } from "@/lib/format";
 
@@ -212,7 +213,15 @@ export function ApiKeysPage() {
           </>
         }
         mobileSubtitle="below"
-        actions={<Button onClick={() => setCreating(true)}>New key</Button>}
+        actions={
+          <>
+            {/* Ukuran meniru Button di PageHeader (h-9 di mobile, h-11 mulai sm) supaya sejajar dengan "New key" */}
+            <Link to="/app/docs" className={buttonClass({ variant: "outline", size: "sm" }, "sm:h-11 sm:px-5 sm:text-[15px]")}>
+              API docs
+            </Link>
+            <Button onClick={() => setCreating(true)}>New key</Button>
+          </>
+        }
       />
 
       <section className="overflow-x-auto border border-ink bg-paper">
