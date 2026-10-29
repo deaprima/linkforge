@@ -124,7 +124,18 @@ environment win). [`.env.example`](.env.example) lists every option with comment
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Auth, Gateway | Google sign-in (leave the secret empty to turn it off) |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | Auth | Password reset email. Port 465 uses TLS, anything else uses STARTTLS |
 | `VERIFY_LIMIT_*`, `FORGOT_LIMIT_*`, `RESET_LIMIT_*` | Gateway | Rate limits for password checks and password reset |
+| `AUTH_LIMIT_*`, `PUBLIC_LIMIT_*`, `USER_LIMIT_*` | Gateway | General rate limits: sign-in per IP, redirects per IP, authenticated API per user |
+| `LOG_FORMAT`, `LOG_LEVEL` | all | `json` (default) or `text`; `debug`, `info`, `warn`, `error` |
+| `*_METRICS_ADDR` | all | Internal `/metrics` and `/healthz` listener (`:9100` to `:9103`). Never expose it to the internet |
 | `GEOIP_DB_PATH` | Analytics | Optional [GeoLite2-Country](https://dev.maxmind.com/geoip/geolite2-free-geolocation-data) database; without it countries show as `ZZ` |
+
+## Monitoring
+
+`docker compose up -d prometheus grafana` starts Prometheus on `127.0.0.1:9090` and Grafana on `127.0.0.1:3001`
+(`admin` / `GRAFANA_ADMIN_PASSWORD`). Prometheus scrapes the four services on the host through
+`host.docker.internal`, and Grafana comes with a provisioned **LinkForge Overview** dashboard: request rate and latency,
+5xx ratio, gRPC latency and errors per dependency, circuit breaker state, Kafka consumer lag, and click events lost
+before they reach Kafka.
 
 ## Project layout
 
@@ -135,7 +146,8 @@ services/
   auth/  link/  analytics/
   shared/              protobuf definitions, circuit breaker, database helpers
 web/                   React app: landing, dashboard, docs, auth pages
-docker-compose.yml     PostgreSQL, Redis, Kafka, Swagger UI
+docker-compose.yml     PostgreSQL, Redis, Kafka, Swagger UI, Prometheus, Grafana
+monitoring/            Prometheus config and provisioned Grafana dashboard
 ```
 
 ## Development
