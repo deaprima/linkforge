@@ -1,21 +1,16 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router";
 import { describe, expect, it } from "vitest";
-import { ThemeProvider } from "@/lib/theme";
 import { groups, splitIntro } from "@/lib/openapi";
 import { DocsPage } from "@/pages/docs/DocsPage";
 import { Markdown } from "@/pages/docs/Markdown";
 import { parseBlocks } from "@/pages/docs/parse";
+import { fail, ok, renderRoute, stubFetch } from "@/test/helpers";
 
 function renderDocs() {
-  return render(
-    <ThemeProvider>
-      <MemoryRouter>
-        <DocsPage />
-      </MemoryRouter>
-    </ThemeProvider>,
-  );
+  // Tamu: /auth/me 401 dan refresh juga 401
+  stubFetch(() => fail(401, "UNAUTHORIZED", "Authentication required."));
+  return renderRoute(<DocsPage />);
 }
 
 describe("Markdown", () => {
@@ -76,5 +71,25 @@ describe("DocsPage", () => {
     expect(within(card).getByText(/https:\/\/linkforge\.deaprima\.my\.id\/api\/v1\/links/)).toBeInTheDocument();
     await user.click(screen.getByRole("radio", { name: "Local" }));
     expect(within(card).getByText(/http:\/\/localhost:8080\/api\/v1\/links/)).toBeInTheDocument();
+  });
+});
+
+describe("DocsPage — tombol akun", () => {
+  // Ada beberapa <header> di halaman ini; TopBar selalu yang pertama
+  const topBar = () => within(screen.getAllByRole("banner")[0]);
+
+  it("tamu melihat Sign in", async () => {
+    renderDocs();
+    const signIn = await topBar().findByRole("link", { name: "Sign in" });
+    expect(signIn).toHaveAttribute("href", "/app/login");
+    expect(topBar().queryByRole("link", { name: "Dashboard" })).toBeNull();
+  });
+
+  it("user yang sudah login melihat Dashboard, bukan Sign in", async () => {
+    stubFetch(() => ok({ id: "u1", name: "Dea", email: "dea@example.com" }));
+    renderRoute(<DocsPage />);
+    const dashboard = await topBar().findByRole("link", { name: "Dashboard" });
+    expect(dashboard).toHaveAttribute("href", "/app/dashboard");
+    expect(topBar().queryByRole("link", { name: "Sign in" })).toBeNull();
   });
 });

@@ -1,3 +1,4 @@
+import { cn } from "cn";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import menuDark from "@/assets/landing/menu-dark.svg";
@@ -10,6 +11,7 @@ import { BackToTop } from "@/components/BackToTop";
 import { Logo, ThemeToggle } from "@/components/brand/Brand";
 import { Themed } from "@/components/brand/Icons";
 import { buttonClass } from "@/components/ui/primitives";
+import { useMe } from "@/lib/auth";
 import { Hero } from "@/pages/landing/Hero";
 import { REPO_URL } from "@/pages/landing/links";
 import { MobileCta, MobileDevelopers, MobileFeatures, MobileHero, MobileHowItWorks } from "@/pages/landing/Mobile";
@@ -30,6 +32,10 @@ const navLinks = [
 
 function Nav() {
   const [open, setOpen] = useState(false);
+  const { data: user, isPending } = useMe();
+  // Selama status login belum diketahui, tombol tamu tetap dirender tapi tak tampak: layout tidak bergeser
+  // dan pengguna yang sudah login tidak sempat melihat "Create free account" berkedip.
+  const pendingHide = isPending ? "invisible" : "";
   return (
     <div className="sticky top-0 z-30">
       <header className="flex h-[60px] items-center justify-between border-b border-ink bg-paper px-4 lg:h-[72px] lg:px-gutter">
@@ -51,12 +57,20 @@ function Nav() {
         </nav>
         <div className="flex items-center gap-2.5">
           <ThemeToggle />
-          <Link to="/app/login" className={buttonClass({ variant: "outline", size: "sm" }, "hidden lg:inline-flex")}>
-            Sign in
-          </Link>
-          <Link to="/app/register" className={buttonClass({ size: "sm" }, "hidden lg:inline-flex")}>
-            Create free account
-          </Link>
+          {user ? (
+            <Link to="/app/dashboard" className={buttonClass({ size: "sm" }, "hidden lg:inline-flex")}>
+              Dashboard
+            </Link>
+          ) : (
+            <>
+              <Link to="/app/login" className={buttonClass({ variant: "outline", size: "sm" }, cn("hidden lg:inline-flex", pendingHide))}>
+                Sign in
+              </Link>
+              <Link to="/app/register" className={buttonClass({ size: "sm" }, cn("hidden lg:inline-flex", pendingHide))}>
+                Create free account
+              </Link>
+            </>
+          )}
           <button
             type="button"
             aria-label={open ? "Close menu" : "Open menu"}
@@ -83,12 +97,20 @@ function Nav() {
             GitHub
           </a>
           <div className="flex flex-col gap-2.5 pt-1">
-            <Link to="/app/register" className={buttonClass({}, "w-full")}>
-              Create free account
-            </Link>
-            <Link to="/app/login" className={buttonClass({ variant: "outline" }, "w-full")}>
-              Sign in
-            </Link>
+            {user ? (
+              <Link to="/app/dashboard" className={buttonClass({}, "w-full")}>
+                Dashboard
+              </Link>
+            ) : (
+              <>
+                <Link to="/app/register" className={buttonClass({}, "w-full")}>
+                  Create free account
+                </Link>
+                <Link to="/app/login" className={buttonClass({ variant: "outline" }, "w-full")}>
+                  Sign in
+                </Link>
+              </>
+            )}
           </div>
         </div>
       )}
