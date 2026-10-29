@@ -30,6 +30,6 @@ test-integration:
 ## Coverage lapisan inti per service; gagal kalau ada yang < 70% (COVERAGE_MIN=... untuk mengubah).
 ## Butuh TEST_DSN supaya test repository ikut jalan.
 cover:
-	TEST_DSN="$(TEST_DSN)" scripts/coverage.sh
+	TEST_DSN="$(TEST_DSN)" bash scripts/coverage.sh
 
 .PHONY: proto test test-integration cover

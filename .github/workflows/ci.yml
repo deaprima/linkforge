@@ -45,7 +45,7 @@ jobs:
       - run: go vet ./...
       - run: go test -race ./...
       # Gagal kalau coverage lapisan inti salah satu service < 70% (AI-RULES.md bagian 5)
-      - run: ../scripts/coverage.sh
+      - run: bash ../scripts/coverage.sh
 
   web:
     name: Web (lint, test, build)
