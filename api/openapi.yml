@@ -45,7 +45,9 @@ info:
 
     ## Rate limits
 
-    Endpoints that are rate limited send these headers on every response, including `429`:
+    Every endpoint except `/healthz` and `/readyz` is rate limited. Public endpoints (auth, redirect) are limited per IP; authenticated endpoints are limited per user, shared across the Bearer token and all of the user's API keys. Defaults: auth 20 per 15 minutes per IP, redirect 300 per minute per IP, authenticated API 120 per minute per user. Password verification and password reset have stricter limits, described on each endpoint.
+
+    Rate limited endpoints send these headers on every response, including `429`:
 
     | Header | Meaning |
     |---|---|
@@ -565,6 +567,8 @@ paths:
                   maxLength: 72
                   example: correct-horse-battery
       responses:
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
         '201':
           description: Account created.
           content:
@@ -606,6 +610,8 @@ paths:
                   type: string
                   example: correct-horse-battery
       responses:
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
         '200':
           description: Signed in.
           content:
@@ -749,6 +755,8 @@ paths:
                   type: string
                   example: 4f8a1c...
       responses:
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
         '200':
           description: New token pair.
           content:
@@ -779,6 +787,8 @@ paths:
                   type: string
                   example: 4f8a1c...
       responses:
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
         '204':
           description: Signed out.
         '401':
@@ -793,6 +803,8 @@ paths:
         - BearerAuth: []
         - CookieAuth: []
       responses:
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
         '200':
           description: The user's profile.
           content:
@@ -809,6 +821,8 @@ paths:
       description: Redirects the browser to Google's consent screen. No body. Available only when Google OAuth is configured.
       operationId: oauthGoogle
       responses:
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
         '302':
           description: Redirect to Google.
 
@@ -829,6 +843,8 @@ paths:
           schema:
             type: string
       responses:
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
         '302':
           description: |
             Redirects to `{FRONTEND_URL}/app/dashboard`, or to `/app/login?error=<reason>` on failure.
@@ -866,6 +882,8 @@ paths:
                   description: Where you will use it, so you know which key to revoke later.
                   example: CI pipeline
       responses:
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
         '201':
           description: Key created.
           content:
@@ -885,6 +903,8 @@ paths:
         - BearerAuth: []
         - CookieAuth: []
       responses:
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
         '200':
           description: Your keys, without the secret part.
           content:
@@ -911,6 +931,8 @@ paths:
             type: string
             format: uuid
       responses:
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
         '204':
           description: Key revoked.
         '401':
@@ -958,6 +980,8 @@ paths:
                   description: Optional. Visitors must enter it before they are redirected.
                   example: secret123
       responses:
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
         '201':
           description: Link created.
           content:
@@ -1025,6 +1049,8 @@ paths:
             minimum: 1
             maximum: 100
       responses:
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
         '200':
           description: A page of links.
           content:
@@ -1051,6 +1077,8 @@ paths:
             type: string
             format: uuid
       responses:
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
         '200':
           description: The link.
           content:
@@ -1101,6 +1129,8 @@ paths:
                   nullable: true
                   example: "2026-12-31T23:59:59Z"
       responses:
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
         '200':
           description: Link updated.
           content:
@@ -1144,6 +1174,8 @@ paths:
             type: string
             format: uuid
       responses:
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
         '204':
           description: Link deleted.
         '401':
@@ -1184,6 +1216,8 @@ paths:
             enum: [png, svg]
             default: png
       responses:
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
         '200':
           description: The QR code image.
           content:
@@ -1219,6 +1253,8 @@ paths:
         - BearerAuth: []
         - CookieAuth: []
       responses:
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
         '200':
           description: Totals and your top links.
           content:
@@ -1262,6 +1298,8 @@ paths:
             format: date
             example: "2026-07-31"
       responses:
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
         '200':
           description: Click statistics.
           content:
@@ -1299,6 +1337,8 @@ paths:
           schema:
             type: string
       responses:
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
         '101':
           description: Switching to WebSocket.
         '401':
@@ -1331,6 +1371,8 @@ paths:
             type: string
             example: pitch
       responses:
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
         '302':
           description: Redirect to the destination.
           headers:
