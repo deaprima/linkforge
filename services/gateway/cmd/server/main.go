@@ -86,6 +86,17 @@ func main() {
 		ResetRateLimit: ratelimit.Middleware(limiter,
 			ratelimit.ResetPasswordRules(cfg.ResetLimitPerIP, cfg.ResetLimitWindow),
 			ratelimit.Options{Message: "Too many attempts. Try again later."}),
+		// Fail-closed: login/register tanpa limiter membuka credential stuffing
+		AuthRateLimit: ratelimit.Middleware(limiter,
+			ratelimit.AuthRules(cfg.AuthLimitPerIP, cfg.AuthLimitWindow),
+			ratelimit.Options{Message: "Too many authentication attempts. Try again later."}),
+		// Fail-open: redirect & API biasa tetap jalan kalau Redis mati (hanya kehilangan throttling)
+		PublicRateLimit: ratelimit.Middleware(limiter,
+			ratelimit.PublicRules(cfg.PublicLimitPerIP, cfg.PublicLimitWindow),
+			ratelimit.Options{FailOpen: true}),
+		UserRateLimit: ratelimit.Middleware(limiter,
+			ratelimit.UserRules(cfg.UserLimitPerUser, cfg.UserLimitWindow),
+			ratelimit.Options{FailOpen: true}),
 	}, router.Options{
 		CORSOrigins:    cfg.CORSOrigins,
 		TrustedProxies: cfg.TrustedProxies,

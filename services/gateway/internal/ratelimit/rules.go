@@ -1,6 +1,7 @@
 package ratelimit
 
 import (
+	"github.com/deaprima/linkforge/services/gateway/internal/middleware"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -40,5 +41,28 @@ func ForgotPasswordRules(perIP int, window time.Duration) RulesFunc {
 func ResetPasswordRules(perIP int, window time.Duration) RulesFunc {
 	return func(c *gin.Context) []Rule {
 		return []Rule{{Key: "reset:ip:" + c.ClientIP(), Limit: perIP, Window: window}}
+	}
+}
+
+// AuthRules membatasi endpoint auth publik (register, login, refresh, OAuth) per IP.
+// Terpisah dari forgot/reset yang punya kuota sendiri.
+func AuthRules(perIP int, window time.Duration) RulesFunc {
+	return func(c *gin.Context) []Rule {
+		return []Rule{{Key: "auth:ip:" + c.ClientIP(), Limit: perIP, Window: window}}
+	}
+}
+
+// PublicRules membatasi endpoint publik tanpa auth (redirect, WebSocket realtime) per IP.
+func PublicRules(perIP int, window time.Duration) RulesFunc {
+	return func(c *gin.Context) []Rule {
+		return []Rule{{Key: "public:ip:" + c.ClientIP(), Limit: perIP, Window: window}}
+	}
+}
+
+// UserRules membatasi request terautentikasi per user. Harus dipasang SETELAH middleware.RequireAuth;
+// JWT dan API key milik user yang sama berbagi kuota, jadi membuat banyak API key tidak melipatgandakan batas.
+func UserRules(perUser int, window time.Duration) RulesFunc {
+	return func(c *gin.Context) []Rule {
+		return []Rule{{Key: "user:" + middleware.UserID(c), Limit: perUser, Window: window}}
 	}
 }

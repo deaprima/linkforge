@@ -48,6 +48,16 @@ type testEnv struct {
 	checks    map[string]handler.CheckFunc
 	redis     *miniredis.Miniredis // state rate limiter, satu per env
 	redisAddr string               // disimpan terpisah: Addr() tidak bisa dipanggil setelah Close()
+
+	// Batas rate limit umum per jendela 1 jam; 0 = longgar (1000) supaya test lain tidak ikut terkena limit
+	authLimit, publicLimit, userLimit int
+}
+
+func orDefault(n, def int) int {
+	if n == 0 {
+		return def
+	}
+	return n
 }
 
 func newEnv() *testEnv {
@@ -89,6 +99,12 @@ func (e *testEnv) engine(t *testing.T) *gin.Engine {
 			ratelimit.ForgotPasswordRules(3, time.Hour), ratelimit.Options{Message: "Too many reset requests. Try again later."}),
 		ResetRateLimit: ratelimit.Middleware(ratelimit.NewRedisLimiter(rdb, "rl:"),
 			ratelimit.ResetPasswordRules(3, 15*time.Minute), ratelimit.Options{Message: "Too many attempts. Try again later."}),
+		AuthRateLimit: ratelimit.Middleware(ratelimit.NewRedisLimiter(rdb, "rl:"),
+			ratelimit.AuthRules(orDefault(e.authLimit, 1000), time.Hour), ratelimit.Options{}),
+		PublicRateLimit: ratelimit.Middleware(ratelimit.NewRedisLimiter(rdb, "rl:"),
+			ratelimit.PublicRules(orDefault(e.publicLimit, 1000), time.Hour), ratelimit.Options{FailOpen: true}),
+		UserRateLimit: ratelimit.Middleware(ratelimit.NewRedisLimiter(rdb, "rl:"),
+			ratelimit.UserRules(orDefault(e.userLimit, 1000), time.Hour), ratelimit.Options{FailOpen: true}),
 	}, router.Options{CORSOrigins: []string{frontendURL}})
 	if err != nil {
 		t.Fatal(err)

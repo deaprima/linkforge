@@ -41,6 +41,14 @@ type Config struct {
 	ForgotLimitWindow time.Duration
 	ResetLimitPerIP   int
 	ResetLimitWindow  time.Duration
+
+	// Rate limit umum: auth publik & redirect per IP, endpoint terautentikasi per user
+	AuthLimitPerIP    int
+	AuthLimitWindow   time.Duration
+	PublicLimitPerIP  int
+	PublicLimitWindow time.Duration
+	UserLimitPerUser  int
+	UserLimitWindow   time.Duration
 }
 
 func LoadConfig() *Config {
@@ -76,6 +84,13 @@ func LoadConfig() *Config {
 		ForgotLimitWindow: getEnvDuration("FORGOT_LIMIT_WINDOW", time.Hour),
 		ResetLimitPerIP:   getEnvInt("RESET_LIMIT_PER_IP", 20),
 		ResetLimitWindow:  getEnvDuration("RESET_LIMIT_WINDOW", 15*time.Minute),
+
+		AuthLimitPerIP:    getEnvInt("AUTH_LIMIT_PER_IP", 20),
+		AuthLimitWindow:   getEnvDuration("AUTH_LIMIT_WINDOW", 15*time.Minute),
+		PublicLimitPerIP:  getEnvInt("PUBLIC_LIMIT_PER_IP", 300),
+		PublicLimitWindow: getEnvDuration("PUBLIC_LIMIT_WINDOW", time.Minute),
+		UserLimitPerUser:  getEnvInt("USER_LIMIT_PER_USER", 120),
+		UserLimitWindow:   getEnvDuration("USER_LIMIT_WINDOW", time.Minute),
 	}
 }
 

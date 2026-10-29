@@ -1,6 +1,6 @@
 // Package ratelimit adalah rate limiter fixed-window berbasis Redis untuk Gateway.
-// Dipakai untuk brute-force protection POST /:alias/verify, dan dirancang reusable untuk
-// rate limit umum per IP / user / API key (Fase 3).
+// Dipakai untuk brute-force protection POST /:alias/verify, rate limit umum per IP / user,
+// dan endpoint sensitif lain (forgot/reset password).
 package ratelimit
 
 import (

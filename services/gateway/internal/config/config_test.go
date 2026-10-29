@@ -46,6 +46,12 @@ func TestLoadConfig_Defaults(t *testing.T) {
 		ForgotLimitWindow:   time.Hour,
 		ResetLimitPerIP:     20,
 		ResetLimitWindow:    15 * time.Minute,
+		AuthLimitPerIP:      20,
+		AuthLimitWindow:     15 * time.Minute,
+		PublicLimitPerIP:    300,
+		PublicLimitWindow:   time.Minute,
+		UserLimitPerUser:    120,
+		UserLimitWindow:     time.Minute,
 	}
 	if !reflect.DeepEqual(cfg, want) {
 		t.Errorf("got  %+v\nwant %+v", cfg, want)
