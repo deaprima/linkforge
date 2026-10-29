@@ -4,7 +4,7 @@ package response
 
 import (
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/deaprima/linkforge/services/shared/breaker"
@@ -100,14 +100,14 @@ var defaultMappings = map[codes.Code]Mapping{
 // Pesan error 4xx diteruskan apa adanya; pesan 5xx disembunyikan supaya detail internal tidak bocor.
 func GRPCError(c *gin.Context, err error, overrides Overrides) {
 	if errors.Is(err, breaker.ErrOpen) {
-		log.Printf("[gateway] circuit breaker open, rejecting %s %s", c.Request.Method, c.FullPath())
+		slog.Warn("circuit breaker open, rejecting request", "method", c.Request.Method, "route", c.FullPath())
 		Error(c, http.StatusServiceUnavailable, CodeServiceUnavailable, "Service is temporarily unavailable, please try again later.")
 		return
 	}
 
 	st, ok := status.FromError(err)
 	if !ok {
-		log.Printf("[gateway] unexpected non-gRPC error on %s %s: %v", c.Request.Method, c.FullPath(), err)
+		slog.Error("unexpected non-gRPC error", "method", c.Request.Method, "route", c.FullPath(), "error", err)
 		Error(c, http.StatusInternalServerError, CodeInternal, "An unexpected error occurred.")
 		return
 	}
@@ -122,10 +122,10 @@ func GRPCError(c *gin.Context, err error, overrides Overrides) {
 
 	switch {
 	case m.Status == http.StatusServiceUnavailable:
-		log.Printf("[gateway] dependency unavailable on %s %s: %v", c.Request.Method, c.FullPath(), err)
+		slog.Error("dependency unavailable", "method", c.Request.Method, "route", c.FullPath(), "error", err)
 		Error(c, m.Status, m.Code, "Service is temporarily unavailable, please try again later.")
 	case m.Status >= http.StatusInternalServerError:
-		log.Printf("[gateway] internal error on %s %s: %v", c.Request.Method, c.FullPath(), err)
+		slog.Error("internal error", "method", c.Request.Method, "route", c.FullPath(), "error", err)
 		Error(c, m.Status, m.Code, "An unexpected error occurred.")
 	default:
 		Error(c, m.Status, m.Code, st.Message())

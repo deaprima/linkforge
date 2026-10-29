@@ -2,9 +2,7 @@ package router
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
-	"net/url"
 	"reflect"
 	"strings"
 	"time"
@@ -32,6 +30,13 @@ type Handlers struct {
 	// ForgotRateLimit & ResetRateLimit wajib diisi: endpoint publik yang memicu email / mengubah password tidak boleh tanpa limit
 	ForgotRateLimit gin.HandlerFunc
 	ResetRateLimit  gin.HandlerFunc
+
+	// AuthRateLimit (per IP, fail-closed): register/login/refresh/OAuth.
+	// PublicRateLimit (per IP, fail-open): redirect dan WebSocket realtime.
+	// UserRateLimit (per user, fail-open): semua endpoint terautentikasi, dipasang setelah RequireAuth.
+	AuthRateLimit   gin.HandlerFunc
+	PublicRateLimit gin.HandlerFunc
+	UserRateLimit   gin.HandlerFunc
 }
 
 type Options struct {
@@ -46,10 +51,13 @@ func New(h Handlers, opts Options) (*gin.Engine, error) {
 	if h.ForgotRateLimit == nil || h.ResetRateLimit == nil {
 		return nil, errors.New("router: ForgotRateLimit and ResetRateLimit middleware are required")
 	}
+	if h.AuthRateLimit == nil || h.PublicRateLimit == nil || h.UserRateLimit == nil {
+		return nil, errors.New("router: AuthRateLimit, PublicRateLimit and UserRateLimit middleware are required")
+	}
 	registerJSONTagNames()
 
 	r := gin.New()
-	r.Use(gin.LoggerWithFormatter(logFormatter), gin.Recovery())
+	r.Use(observe(), gin.Recovery())
 	if err := r.SetTrustedProxies(opts.TrustedProxies); err != nil {
 		return nil, err
 	}
@@ -71,16 +79,16 @@ func New(h Handlers, opts Options) (*gin.Engine, error) {
 
 	// Auth
 	auth := api.Group("/auth")
-	auth.POST("/register", h.Auth.Register)
-	auth.POST("/login", h.Auth.Login)
-	auth.POST("/refresh", h.Auth.Refresh)
+	auth.POST("/register", h.AuthRateLimit, h.Auth.Register)
+	auth.POST("/login", h.AuthRateLimit, h.Auth.Login)
+	auth.POST("/refresh", h.AuthRateLimit, h.Auth.Refresh)
 	auth.POST("/forgot-password", h.ForgotRateLimit, h.Auth.ForgotPassword)
 	auth.POST("/reset-password", h.ResetRateLimit, h.Auth.ResetPassword)
-	auth.GET("/oauth/google", h.Auth.GoogleLogin)
-	auth.GET("/oauth/google/callback", h.Auth.GoogleCallback)
+	auth.GET("/oauth/google", h.AuthRateLimit, h.Auth.GoogleLogin)
+	auth.GET("/oauth/google/callback", h.AuthRateLimit, h.Auth.GoogleCallback)
 
 	// Manajemen akun: Bearer token saja, API key tidak berlaku
-	account := auth.Group("", middleware.RequireAuth(h.Validator, false))
+	account := auth.Group("", middleware.RequireAuth(h.Validator, false), h.UserRateLimit)
 	account.POST("/logout", h.Auth.Logout)
 	account.GET("/me", h.Auth.Me)
 	account.POST("/api-keys", h.Auth.CreateApiKey)
@@ -88,7 +96,7 @@ func New(h Handlers, opts Options) (*gin.Engine, error) {
 	account.DELETE("/api-keys/:id", h.Auth.DeleteApiKey)
 
 	// Links: Bearer token atau API key
-	links := api.Group("/links", middleware.RequireAuth(h.Validator, true))
+	links := api.Group("/links", middleware.RequireAuth(h.Validator, true), h.UserRateLimit)
 	links.POST("", h.Link.Create)
 	links.GET("", h.Link.List)
 	links.GET("/:id", h.Link.Get)
@@ -98,13 +106,13 @@ func New(h Handlers, opts Options) (*gin.Engine, error) {
 
 	// Analytics: Bearer token atau API key; WebSocket memvalidasi token sendiri (bisa via query param)
 	analytics := api.Group("/analytics")
-	analytics.GET("/realtime", h.Analytics.Realtime)
-	stats := analytics.Group("", middleware.RequireAuth(h.Validator, true))
+	analytics.GET("/realtime", h.PublicRateLimit, h.Analytics.Realtime)
+	stats := analytics.Group("", middleware.RequireAuth(h.Validator, true), h.UserRateLimit)
 	stats.GET("/summary", h.Analytics.Summary)
 	stats.GET("/links/:id", h.Analytics.LinkStats)
 
 	// Redirect publik dari root — route static di atas tetap diprioritaskan oleh Gin
-	r.GET("/:alias", h.Redirect.Resolve)
+	r.GET("/:alias", h.PublicRateLimit, h.Redirect.Resolve)
 	r.POST("/:alias/verify", h.VerifyRateLimit, h.Redirect.Verify)
 
 	r.NoRoute(func(c *gin.Context) {
@@ -127,42 +135,4 @@ func registerJSONTagNames() {
 		}
 		return name
 	})
-}
-
-// sensitiveQueryParams tidak boleh muncul di access log (mis. ?token= di WebSocket realtime).
-var sensitiveQueryParams = []string{"token", "code", "state"}
-
-// logFormatter = format default gin, tapi query sensitif di-redact.
-func logFormatter(p gin.LogFormatterParams) string {
-	return fmt.Sprintf("[GIN] %v | %3d | %13v | %15s | %-7s %#v\n%s",
-		p.TimeStamp.Format("2006/01/02 - 15:04:05"),
-		p.StatusCode,
-		p.Latency,
-		p.ClientIP,
-		p.Method,
-		redactQuery(p.Path),
-		p.ErrorMessage,
-	)
-}
-
-func redactQuery(path string) string {
-	base, rawQuery, found := strings.Cut(path, "?")
-	if !found {
-		return path
-	}
-	query, err := url.ParseQuery(rawQuery)
-	if err != nil {
-		return base + "?REDACTED"
-	}
-	redacted := false
-	for _, key := range sensitiveQueryParams {
-		if query.Has(key) {
-			query.Set(key, "REDACTED")
-			redacted = true
-		}
-	}
-	if !redacted {
-		return path
-	}
-	return base + "?" + query.Encode()
 }

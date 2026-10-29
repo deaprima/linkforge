@@ -3,6 +3,8 @@ package breaker
 import (
 	"errors"
 	"testing"
+
+	"github.com/prometheus/client_golang/prometheus/testutil"
 )
 
 var errFail = errors.New("dependency failed")
@@ -66,4 +68,22 @@ func TestGoBreaker_StaysClosed(t *testing.T) {
 			t.Fatalf("30%% failure ratio must not trip: %v", err)
 		}
 	})
+}
+
+func TestGoBreaker_ExportsStateMetrics(t *testing.T) {
+	name := t.Name()
+	b := NewGoBreaker(name)
+	if got := testutil.ToFloat64(stateGauge.WithLabelValues(name)); got != 0 {
+		t.Fatalf("initial state = %v, want 0 (closed)", got)
+	}
+
+	for i := 0; i < 5; i++ {
+		_ = run(b, true)
+	}
+	if got := testutil.ToFloat64(stateGauge.WithLabelValues(name)); got != 2 {
+		t.Errorf("state after trip = %v, want 2 (open)", got)
+	}
+	if got := testutil.ToFloat64(transitions.WithLabelValues(name, "open")); got != 1 {
+		t.Errorf("open transitions = %v, want 1", got)
+	}
 }

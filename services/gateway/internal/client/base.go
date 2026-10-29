@@ -3,9 +3,11 @@ package client
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/deaprima/linkforge/services/shared/breaker"
+	"github.com/deaprima/linkforge/services/shared/metrics"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -23,7 +25,10 @@ type baseClient struct {
 }
 
 func newBaseClient(addr, breakerName string, timeout time.Duration) (baseClient, error) {
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(addr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithChainUnaryInterceptor(metrics.UnaryClientInterceptor(dependencyName(breakerName))),
+	)
 	if err != nil {
 		return baseClient{}, err
 	}
@@ -88,4 +93,13 @@ func call[T any](ctx context.Context, b *baseClient, fn func(context.Context) (T
 		return zero, bizErr
 	}
 	return res.(T), nil
+}
+
+// dependencyName mengambil nama dependency untuk label metrik dari nama breaker ("gateway->auth" -> "auth").
+func dependencyName(breakerName string) string {
+	_, name, found := strings.Cut(breakerName, "->")
+	if !found {
+		return breakerName
+	}
+	return name
 }

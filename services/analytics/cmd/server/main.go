@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"log/slog"
 	"net"
 	"os"
 	"os/signal"
@@ -20,7 +21,10 @@ import (
 	"github.com/deaprima/linkforge/services/analytics/internal/service"
 	"github.com/deaprima/linkforge/services/shared/database"
 	"github.com/deaprima/linkforge/services/shared/kafka"
-	pb "github.com/deaprima/linkforge/services/shared/proto/analytics"
+	"github.com/deaprima/linkforge/services/shared/logger"
+	"github.com/deaprima/linkforge/services/shared/metrics"
+	"github.com/deaprima/linkforge/services/shared/ops"
+	pb"github.com/deaprima/linkforge/services/shared/proto/analytics"
 	"github.com/joho/godotenv"
 	kafkago "github.com/segmentio/kafka-go"
 	"google.golang.org/grpc"
@@ -31,8 +35,10 @@ import (
 const clickTopicPartitions = 3
 
 func main() {
-	if err := godotenv.Load("../.env"); err != nil {
-		log.Println("Warning: .env file not found, relying on system environment variables")
+	envErr := godotenv.Load("../.env")
+	logger.Setup("analytics") // setelah .env dimuat supaya LOG_LEVEL / LOG_FORMAT terbaca
+	if envErr != nil {
+		slog.Warn(".env file not found, relying on system environment variables")
 	}
 
 	log.Println("Starting Analytics Service..")
@@ -41,12 +47,12 @@ func main() {
 
 	db, err := database.ConnectPostgres(cfg.DatabaseDSN, true)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		logger.Fatalf("Failed to connect to database: %v", err)
 	}
 
 	log.Println("Running AutoMigration for Analytics Service...")
 	if err := db.AutoMigrate(&entity.LinkClick{}, &entity.LinkDailyStat{}); err != nil {
-		log.Fatalf("Database migration failed: %v", err)
+		logger.Fatalf("Database migration failed: %v", err)
 	}
 	log.Println("Database migration completed successfully!")
 
@@ -55,7 +61,7 @@ func main() {
 	if cfg.GeoIPDBPath != "" {
 		g, err := enrich.OpenGeoLite2(cfg.GeoIPDBPath)
 		if err != nil {
-			log.Fatalf("Failed to open GeoIP database: %v", err)
+			logger.Fatalf("Failed to open GeoIP database: %v", err)
 		}
 		defer g.Close()
 		geo = g
@@ -89,6 +95,8 @@ func main() {
 	analyticsHandler := grpcDelivery.NewAnalyticsHandler(analyticsService, hub)
 	clickConsumer := consumer.New(reader, clickRepo, enrich.New(geo), hub)
 
+	registerConsumerMetrics(reader, clickConsumer, kafka.TopicLinkClicked, cfg.KafkaGroupID)
+
 	consumerCtx, stopConsumer := context.WithCancel(context.Background())
 	var consumerDone sync.WaitGroup
 	consumerDone.Add(1)
@@ -100,10 +108,14 @@ func main() {
 
 	lis, err := net.Listen("tcp", ":"+cfg.GRPCPort)
 	if err != nil {
-		log.Fatalf("Failed to listen on port %s: %v", cfg.GRPCPort, err)
+		logger.Fatalf("Failed to listen on port %s: %v", cfg.GRPCPort, err)
 	}
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(metrics.UnaryServerInterceptor()),
+		grpc.ChainStreamInterceptor(metrics.StreamServerInterceptor()),
+	)
+	stopOps := ops.Serve(ops.AddrFromEnv("ANALYTICS_METRICS_ADDR", ":9103"))
 	pb.RegisterAnalyticsServiceServer(grpcServer, analyticsHandler)
 
 	// Standard gRPC health check, dipakai Gateway untuk /readyz
@@ -113,7 +125,7 @@ func main() {
 	go func() {
 		log.Printf("Analytics Service gRPC server running on port %s...", cfg.GRPCPort)
 		if err := grpcServer.Serve(lis); err != nil {
-			log.Fatalf("Failed to serve gRPC: %v", err)
+			logger.Fatalf("Failed to serve gRPC: %v", err)
 		}
 	}()
 
@@ -145,5 +157,8 @@ func main() {
 	case <-time.After(5 * time.Second):
 		grpcServer.Stop()
 	}
+	opsCtx, cancelOps := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelOps()
+	_ = stopOps(opsCtx)
 	log.Println("Analytics Service stopped.")
 }

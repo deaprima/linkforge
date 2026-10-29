@@ -5,7 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/hex"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"time"
@@ -354,7 +354,7 @@ func (h *AuthHandler) GoogleLogin(c *gin.Context) {
 
 	state, err := randomState()
 	if err != nil {
-		log.Printf("[gateway] failed to generate oauth state: %v", err)
+		slog.Error("failed to generate oauth state", "error", err)
 		response.Error(c, http.StatusInternalServerError, response.CodeInternal, "An unexpected error occurred.")
 		return
 	}
@@ -388,14 +388,14 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 
 	idToken, err := h.google.ExchangeIDToken(c.Request.Context(), code)
 	if err != nil {
-		log.Printf("[gateway] google oauth exchange: %v", err)
+		slog.Error("google oauth exchange failed", "error", err)
 		h.redirectOAuthError(c, "exchange_failed")
 		return
 	}
 
 	res, err := h.auth.GoogleAuth(rpcContext(c), &pb.GoogleAuthRequest{IdToken: idToken})
 	if err != nil {
-		log.Printf("[gateway] google auth rpc: %v", err)
+		slog.Error("google auth rpc failed", "error", err)
 		h.redirectOAuthError(c, "auth_failed")
 		return
 	}

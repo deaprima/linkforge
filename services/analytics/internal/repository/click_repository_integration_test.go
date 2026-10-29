@@ -3,62 +3,21 @@ package repository
 import (
 	"context"
 	"fmt"
-	"os"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/deaprima/linkforge/services/analytics/internal/entity"
+	"github.com/deaprima/linkforge/services/shared/testdb"
 	"github.com/google/uuid"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 )
 
 // Integration test terhadap Postgres sungguhan (SQL di repository memakai fitur Postgres:
-// ON CONFLICT, DISTINCT ON, CTE). Di-skip kalau ANALYTICS_TEST_DSN tidak di-set, mis.:
-//
-//	ANALYTICS_TEST_DSN="postgres://user:pass@localhost:5432/linkforge?sslmode=disable" go test ./analytics/...
-//
-// Setiap test memakai schema sementara sendiri yang di-drop setelah selesai.
+// ON CONFLICT, DISTINCT ON, CTE). Di-skip kalau TEST_DSN tidak di-set (lihat shared/testdb);
+// setiap test memakai schema sementara sendiri yang di-drop setelah selesai.
 func newTestRepo(t *testing.T) (ClickRepository, *gorm.DB) {
 	t.Helper()
-	dsn := os.Getenv("ANALYTICS_TEST_DSN")
-	if dsn == "" {
-		t.Skip("ANALYTICS_TEST_DSN not set; skipping Postgres integration test")
-	}
-
-	schema := "analytics_test_" + strings.ReplaceAll(uuid.NewString()[:8], "-", "")
-	admin, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Discard})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := admin.Exec("CREATE SCHEMA " + schema).Error; err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		admin.Exec("DROP SCHEMA " + schema + " CASCADE")
-		if sqlDB, err := admin.DB(); err == nil {
-			sqlDB.Close()
-		}
-	})
-
-	sep := "?"
-	if strings.Contains(dsn, "?") {
-		sep = "&"
-	}
-	db, err := gorm.Open(postgres.Open(dsn+sep+"search_path="+schema), &gorm.Config{Logger: logger.Discard})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		if sqlDB, err := db.DB(); err == nil {
-			sqlDB.Close()
-		}
-	})
-	if err := db.AutoMigrate(&entity.LinkClick{}, &entity.LinkDailyStat{}); err != nil {
-		t.Fatal(err)
-	}
+	db := testdb.Open(t, "analytics", &entity.LinkClick{}, &entity.LinkDailyStat{})
 	return NewClickRepository(db), db
 }
 

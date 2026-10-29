@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -15,35 +16,39 @@ import (
 	"github.com/deaprima/linkforge/services/gateway/internal/handler"
 	"github.com/deaprima/linkforge/services/gateway/internal/ratelimit"
 	"github.com/deaprima/linkforge/services/gateway/internal/router"
+	"github.com/deaprima/linkforge/services/shared/logger"
+	"github.com/deaprima/linkforge/services/shared/ops"
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
 )
 
 func main() {
-	if err := godotenv.Load("../.env"); err != nil {
-		log.Println("Warning: .env file not found, relying on system environment variables")
+	envErr := godotenv.Load("../.env")
+	logger.Setup("gateway") // setelah .env dimuat supaya LOG_LEVEL / LOG_FORMAT terbaca
+	if envErr != nil {
+		slog.Warn(".env file not found, relying on system environment variables")
 	}
 
-	log.Println("Starting Gateway Service..")
+	slog.Info("Starting Gateway Service..")
 
 	cfg := config.LoadConfig()
 
 	// gRPC clients (koneksi lazy — service tujuan tidak harus sudah jalan saat startup)
 	authClient, err := client.NewAuthClient(cfg.AuthGRPCAddr, cfg.GRPCTimeout)
 	if err != nil {
-		log.Fatalf("Failed to create auth client: %v", err)
+		logger.Fatalf("Failed to create auth client: %v", err)
 	}
 	defer authClient.Close()
 
 	linkClient, err := client.NewLinkClient(cfg.LinkGRPCAddr, cfg.GRPCTimeout)
 	if err != nil {
-		log.Fatalf("Failed to create link client: %v", err)
+		logger.Fatalf("Failed to create link client: %v", err)
 	}
 	defer linkClient.Close()
 
 	analyticsClient, err := client.NewAnalyticsClient(cfg.AnalyticsGRPCAddr, cfg.GRPCTimeout)
 	if err != nil {
-		log.Fatalf("Failed to create analytics client: %v", err)
+		logger.Fatalf("Failed to create analytics client: %v", err)
 	}
 	defer analyticsClient.Close()
 
@@ -86,12 +91,23 @@ func main() {
 		ResetRateLimit: ratelimit.Middleware(limiter,
 			ratelimit.ResetPasswordRules(cfg.ResetLimitPerIP, cfg.ResetLimitWindow),
 			ratelimit.Options{Message: "Too many attempts. Try again later."}),
+		// Fail-closed: login/register tanpa limiter membuka credential stuffing
+		AuthRateLimit: ratelimit.Middleware(limiter,
+			ratelimit.AuthRules(cfg.AuthLimitPerIP, cfg.AuthLimitWindow),
+			ratelimit.Options{Message: "Too many authentication attempts. Try again later."}),
+		// Fail-open: redirect & API biasa tetap jalan kalau Redis mati (hanya kehilangan throttling)
+		PublicRateLimit: ratelimit.Middleware(limiter,
+			ratelimit.PublicRules(cfg.PublicLimitPerIP, cfg.PublicLimitWindow),
+			ratelimit.Options{FailOpen: true}),
+		UserRateLimit: ratelimit.Middleware(limiter,
+			ratelimit.UserRules(cfg.UserLimitPerUser, cfg.UserLimitWindow),
+			ratelimit.Options{FailOpen: true}),
 	}, router.Options{
 		CORSOrigins:    cfg.CORSOrigins,
 		TrustedProxies: cfg.TrustedProxies,
 	})
 	if err != nil {
-		log.Fatalf("Failed to setup router: %v", err)
+		logger.Fatalf("Failed to setup router: %v", err)
 	}
 
 	srv := &http.Server{
@@ -103,10 +119,13 @@ func main() {
 		IdleTimeout:       60 * time.Second,
 	}
 
+	// /metrics di listener terpisah dari port publik, jadi tidak pernah terjangkau lewat reverse proxy ke internet
+	stopOps := ops.Serve(ops.AddrFromEnv("GATEWAY_METRICS_ADDR", ":9100"))
+
 	go func() {
 		log.Printf("Gateway HTTP server running on port %s...", cfg.HTTPPort)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("Failed to serve HTTP: %v", err)
+			logger.Fatalf("Failed to serve HTTP: %v", err)
 		}
 	}()
 
@@ -121,5 +140,6 @@ func main() {
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Printf("Gateway forced to shutdown: %v", err)
 	}
+	_ = stopOps(ctx)
 	log.Println("Gateway stopped.")
 }

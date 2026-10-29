@@ -3,7 +3,7 @@ package event
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -70,7 +70,7 @@ func (p *KafkaPublisher) PublishClick(ev *eventspb.LinkClicked) {
 	case p.events <- ev:
 	default:
 		if n := p.dropped.Add(1); n == 1 || n%1000 == 0 {
-			log.Printf("[link] click event buffer full, dropped %d events so far", n)
+			slog.Warn("click event buffer full, events dropped", "dropped_total", n)
 		}
 	}
 }
@@ -106,7 +106,7 @@ func (p *KafkaPublisher) toMessage(ev *eventspb.LinkClicked) kafkago.Message {
 	value, err := proto.Marshal(ev)
 	if err != nil {
 		// Tidak mungkin terjadi untuk message proto yang valid; tetap jangan panic
-		log.Printf("[link] failed to marshal click event %s: %v", ev.GetEventId(), err)
+		slog.Error("failed to marshal click event", "event_id", ev.GetEventId(), "error", err)
 	}
 	return kafkago.Message{Key: []byte(ev.GetLinkId()), Value: value}
 }
@@ -116,7 +116,7 @@ func (p *KafkaPublisher) write(batch []kafkago.Message) {
 	defer cancel()
 	if err := p.writer.WriteMessages(ctx, batch...); err != nil {
 		p.failed.Add(int64(len(batch)))
-		log.Printf("[link] failed to publish %d click events: %v", len(batch), err)
+		slog.Error("failed to publish click events", "count", len(batch), "error", err)
 	}
 }
 
@@ -126,7 +126,7 @@ func (p *KafkaPublisher) Close(ctx context.Context) error {
 	select {
 	case <-p.done:
 	case <-ctx.Done():
-		log.Printf("[link] shutdown timeout, %d click events not flushed", len(p.events))
+		slog.Warn("shutdown timeout, click events not flushed", "pending", len(p.events))
 	}
 	return p.writer.Close()
 }
