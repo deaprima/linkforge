@@ -116,3 +116,12 @@ func TestClients_CheckFailsWhenServiceIsDown(t *testing.T) {
 		t.Error("Check must fail when the service is unreachable")
 	}
 }
+
+func TestDependencyName(t *testing.T) {
+	cases := map[string]string{"gateway->auth": "auth", "gateway->link": "link", "standalone": "standalone"}
+	for in, want := range cases {
+		if got := dependencyName(in); got != want {
+			t.Errorf("dependencyName(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

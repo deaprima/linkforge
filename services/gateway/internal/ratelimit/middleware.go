@@ -1,7 +1,7 @@
 package ratelimit
 
 import (
-	"log"
+	"log/slog"
 	"math"
 	"net/http"
 	"strconv"
@@ -29,7 +29,7 @@ func Middleware(limiter Limiter, rules RulesFunc, opts Options) gin.HandlerFunc 
 	return func(c *gin.Context) {
 		res, err := limiter.Allow(c.Request.Context(), rules(c)...)
 		if err != nil {
-			log.Printf("[gateway] rate limiter unavailable on %s %s: %v", c.Request.Method, c.FullPath(), err)
+			slog.Error("rate limiter unavailable", "method", c.Request.Method, "route", c.FullPath(), "error", err)
 			if opts.FailOpen {
 				c.Next()
 				return
