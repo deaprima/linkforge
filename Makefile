@@ -22,8 +22,14 @@ test:
 
 ## Integration test Kafka + Postgres (butuh: docker compose up -d postgres kafka)
 ## Contoh: make test-integration TEST_DSN="postgres://user:pass@localhost:5432/linkforge?sslmode=disable"
+## Mencakup repository Auth/Link/Analytics, consumer restart, dan EnsureTopic.
 KAFKA_TEST_BROKERS ?= localhost:9092
 test-integration:
-	cd services && KAFKA_TEST_BROKERS=$(KAFKA_TEST_BROKERS) ANALYTICS_TEST_DSN="$(TEST_DSN)" go test -count=1 ./analytics/...
+	cd services && KAFKA_TEST_BROKERS=$(KAFKA_TEST_BROKERS) TEST_DSN="$(TEST_DSN)" ANALYTICS_TEST_DSN="$(TEST_DSN)" go test -count=1 ./...
 
-.PHONY: proto test test-integration
+## Coverage lapisan inti per service; gagal kalau ada yang < 70% (COVERAGE_MIN=... untuk mengubah).
+## Butuh TEST_DSN supaya test repository ikut jalan.
+cover:
+	TEST_DSN="$(TEST_DSN)" scripts/coverage.sh
+
+.PHONY: proto test test-integration cover

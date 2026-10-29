@@ -164,7 +164,16 @@ npm run build
 ```
 
 After changing a `.proto` file, regenerate the Go code with `make proto` (needs `protoc`, `protoc-gen-go` and `protoc-gen-go-grpc`).
-Integration tests for Kafka and Postgres are skipped unless their environment is set; see the `Makefile`.
+Integration tests for Kafka and Postgres are skipped unless their environment is set; see the `Makefile`. Repository tests
+run against a real Postgres in a throwaway schema, so any empty database works:
+
+```bash
+docker run -d --rm -p 55432:5432 -e POSTGRES_PASSWORD=test -e POSTGRES_DB=linkforge postgres:16-alpine
+make cover TEST_DSN="postgres://postgres:test@localhost:55432/linkforge?sslmode=disable"
+```
+
+`make cover` measures the core layers of each service (handlers, services, repositories; not `main`, generated code or
+entities) and fails below 70%. CI runs the same check against a Postgres service container.
 
 The API is **contract first**: change [`api/openapi.yml`](api/openapi.yml) before the code, and the docs page updates itself.
 

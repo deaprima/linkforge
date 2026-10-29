@@ -15,11 +15,27 @@ concurrency:
 
 jobs:
   go:
-    name: Go (vet, test)
+    name: Go (vet, test, coverage)
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: services
+    # Postgres sungguhan untuk integration test repository (tanpa ini test-nya di-skip)
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: linkforge
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DSN: postgres://postgres:test@localhost:5432/linkforge?sslmode=disable
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -28,6 +44,8 @@ jobs:
           cache-dependency-path: services/go.sum
       - run: go vet ./...
       - run: go test -race ./...
+      # Gagal kalau coverage lapisan inti salah satu service < 70% (AI-RULES.md bagian 5)
+      - run: ../scripts/coverage.sh
 
   web:
     name: Web (lint, test, build)
