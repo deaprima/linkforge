@@ -5,6 +5,7 @@ import { BackToTop } from "@/components/BackToTop";
 import { GridBackground } from "@/components/brand/Brand";
 import { TopBar } from "@/components/layout/AuthLayout";
 import { buttonClass } from "@/components/ui/primitives";
+import { useMe } from "@/lib/auth";
 import { groups, info, slug, splitIntro, type TagGroup } from "@/lib/openapi";
 import { API_SPEC_URL, REPO_URL } from "@/pages/landing/links";
 import { Markdown } from "@/pages/docs/Markdown";
@@ -130,6 +131,7 @@ function EnvSwitch({ env, onChange }: { env: Env; onChange: (e: Env) => void }) 
 
 export function DocsPage() {
   const [env, setEnv] = useEnv();
+  const { data: user, isPending } = useMe();
   const intro = useMemo(() => splitIntro(info.description), []);
   const tagGroups = useMemo(groups, []);
   const ids = useMemo(() => [...intro.sections.map((s) => s.id), ...tagGroups.flatMap((g) => g.operations.map((o) => o.id))], [intro, tagGroups]);
@@ -150,9 +152,15 @@ export function DocsPage() {
         <Link to="/" className={buttonClass({ variant: "outline", size: "sm" }, "hidden sm:inline-flex")}>
           Home
         </Link>
-        <Link to="/app/login" className={buttonClass({ size: "sm" })}>
-          Sign in
-        </Link>
+        {user ? (
+          <Link to="/app/dashboard" className={buttonClass({ size: "sm" })}>
+            Dashboard
+          </Link>
+        ) : (
+          <Link to="/app/login" className={buttonClass({ size: "sm" }, isPending ? "invisible" : "")}>
+            Sign in
+          </Link>
+        )}
       </TopBar>
 
       <div className="mx-auto flex w-full max-w-[1520px] flex-1 gap-12 px-4 py-8 sm:px-10 sm:py-14">
