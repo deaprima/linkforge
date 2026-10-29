@@ -18,10 +18,26 @@ type fakeWriter struct {
 	batches [][]kafkago.Message
 	err     error
 	block   chan struct{}
+	entered chan struct{} // opsional (buffered 1): diisi saat worker masuk WriteMessages, sebelum menunggu block
 	closed  bool
 }
 
+func waitEntered(t *testing.T, w *fakeWriter) {
+	t.Helper()
+	select {
+	case <-w.entered:
+	case <-time.After(2 * time.Second):
+		t.Fatal("worker never reached WriteMessages")
+	}
+}
+
 func (w *fakeWriter) WriteMessages(_ context.Context, msgs ...kafkago.Message) error {
+	if w.entered != nil {
+		select {
+		case w.entered <- struct{}{}:
+		default:
+		}
+	}
 	if w.block != nil {
 		<-w.block
 	}
@@ -87,12 +103,12 @@ func TestPublisher_EncodesEventWithLinkIDKey(t *testing.T) {
 }
 
 func TestPublisher_BatchesQueuedEvents(t *testing.T) {
-	w := &fakeWriter{block: make(chan struct{})}
+	w := &fakeWriter{block: make(chan struct{}), entered: make(chan struct{}, 1)}
 	p := NewKafkaPublisher(w, 1000)
 
 	// Event pertama menahan worker di WriteMessages; sisanya menumpuk di antrian
 	p.PublishClick(click("first"))
-	time.Sleep(20 * time.Millisecond)
+	waitEntered(t, w)
 	for i := range 250 {
 		p.PublishClick(click(string(rune('a' + i%26))))
 	}
@@ -113,8 +129,11 @@ func TestPublisher_BatchesQueuedEvents(t *testing.T) {
 }
 
 func TestPublisher_NeverBlocksWhenBufferIsFull(t *testing.T) {
-	w := &fakeWriter{block: make(chan struct{})} // Kafka "hang"
+	w := &fakeWriter{block: make(chan struct{}), entered: make(chan struct{}, 1)} 
 	p := NewKafkaPublisher(w, 5)
+
+	p.PublishClick(click("first"))
+	waitEntered(t, w)
 
 	start := time.Now()
 	for i := range 100 {
@@ -123,9 +142,9 @@ func TestPublisher_NeverBlocksWhenBufferIsFull(t *testing.T) {
 	if elapsed := time.Since(start); elapsed > 100*time.Millisecond {
 		t.Fatalf("PublishClick blocked for %v while kafka was stuck", elapsed)
 	}
-	// 1 sedang ditulis worker + 5 di buffer, sisanya dibuang
-	if dropped := p.Dropped(); dropped < 90 {
-		t.Errorf("dropped = %d, want >= 90", dropped)
+	// Worker sedang menahan event pertama, buffer menampung 5, sisanya (95) dibuang
+	if dropped := p.Dropped(); dropped != 95 {
+		t.Errorf("dropped = %d, want 95", dropped)
 	}
 	close(w.block)
 	closeWithin(t, p, time.Second)
