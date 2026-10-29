@@ -4,7 +4,7 @@ package consumer
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"sync/atomic"
 	"time"
 
@@ -66,7 +66,7 @@ func (c *Consumer) Run(ctx context.Context) {
 			if ctx.Err() != nil {
 				return
 			}
-			log.Printf("[analytics] fetch message failed: %v", err)
+			slog.Error("fetch message failed", "error", err)
 			if !c.sleep(ctx) {
 				return
 			}
@@ -79,7 +79,7 @@ func (c *Consumer) Run(ctx context.Context) {
 
 		if err := c.reader.CommitMessages(ctx, msg); err != nil && ctx.Err() == nil {
 			// Aman: pesan akan dikirim ulang dan di-skip sebagai duplikat
-			log.Printf("[analytics] commit offset %d/%d failed: %v", msg.Partition, msg.Offset, err)
+			slog.Error("commit offset failed", "partition", msg.Partition, "offset", msg.Offset, "error", err)
 		}
 	}
 }
@@ -88,7 +88,7 @@ func (c *Consumer) handle(ctx context.Context, msg kafkago.Message) error {
 	click, userID, err := c.decode(msg)
 	if err != nil {
 		c.skipped.Add(1)
-		log.Printf("[analytics] skipping invalid event at %d/%d: %v", msg.Partition, msg.Offset, err)
+		slog.Warn("skipping invalid event", "partition", msg.Partition, "offset", msg.Offset, "error", err)
 		return nil
 	}
 
@@ -111,7 +111,7 @@ func (c *Consumer) handle(ctx context.Context, msg kafkago.Message) error {
 			})
 			return nil
 		}
-		log.Printf("[analytics] save click %s failed, retrying: %v", click.EventID, err)
+		slog.Error("save click failed, retrying", "event_id", click.EventID, "error", err)
 		if !c.sleep(ctx) {
 			return ctx.Err()
 		}

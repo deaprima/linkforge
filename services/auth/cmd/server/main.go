@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"log"
+	"log/slog"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/deaprima/linkforge/services/auth/internal/config"
 	grpcDelivery "github.com/deaprima/linkforge/services/auth/internal/delivery/grpc"
@@ -14,7 +17,10 @@ import (
 	"github.com/deaprima/linkforge/services/auth/internal/repository"
 	"github.com/deaprima/linkforge/services/auth/internal/service"
 	"github.com/deaprima/linkforge/services/shared/database"
-	pb "github.com/deaprima/linkforge/services/shared/proto/auth"
+	"github.com/deaprima/linkforge/services/shared/logger"
+	"github.com/deaprima/linkforge/services/shared/metrics"
+	"github.com/deaprima/linkforge/services/shared/ops"
+	pb"github.com/deaprima/linkforge/services/shared/proto/auth"
 	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -23,18 +29,19 @@ import (
 
 func main(){
 
-	err := godotenv.Load("../.env")
-	if err != nil {
-		log.Println("Warning: .env file not found, relying on system environment variables")
+	envErr := godotenv.Load("../.env")
+	logger.Setup("auth") // setelah .env dimuat supaya LOG_LEVEL / LOG_FORMAT terbaca
+	if envErr != nil {
+		slog.Warn(".env file not found, relying on system environment variables")
 	}
 
-	log.Println("Starting Auth Service..")
+	slog.Info("Starting Auth Service..")
 
 	cfg := config.LoadConfig()
 
 	db, err := database.ConnectPostgres(cfg.DatabaseDSN, true)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		logger.Fatalf("Failed to connect to database: %v", err)
 	}
 
 	log.Printf("Running AutoMigration...")
@@ -46,7 +53,7 @@ func main(){
 		&entity.PasswordResetToken{},
 	)
 	if err != nil {
-		log.Fatalf("Database migration failed: %v", err)
+		logger.Fatalf("Database migration failed: %v", err)
 	}
 	log.Println("Database migration completed successfully!!!")
 
@@ -71,10 +78,14 @@ func main(){
 
 	lis, err := net.Listen("tcp", ":"+cfg.GRPCPort)
 	if err != nil {
-		log.Fatalf("Failed to listen on port %s: %v", cfg.GRPCPort, err)
+		logger.Fatalf("Failed to listen on port %s: %v", cfg.GRPCPort, err)
 	}
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(metrics.UnaryServerInterceptor()),
+		grpc.ChainStreamInterceptor(metrics.StreamServerInterceptor()),
+	)
+	stopOps := ops.Serve(ops.AddrFromEnv("AUTH_METRICS_ADDR", ":9101"))
 
 	pb.RegisterAuthServiceServer(grpcServer, authHandler)
 
@@ -85,7 +96,7 @@ func main(){
 	go func() {
 		log.Printf("gRPC server is running on port %s...", cfg.GRPCPort)
 		if err := grpcServer.Serve(lis); err != nil {
-			log.Fatalf("Failed to serve gRPC: %v", err)
+			logger.Fatalf("Failed to serve gRPC: %v", err)
 		}
 	}()
 
@@ -97,6 +108,9 @@ func main(){
 	log.Printf("Shutting down gRPC server gracefully...")
 	healthServer.Shutdown()
 	grpcServer.GracefulStop()
+	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelShutdown()
+	_ = stopOps(shutdownCtx)
 
 	log.Printf("Auth Service stoped.")
 }

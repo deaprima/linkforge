@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"html"
-	"log"
+	"log/slog"
 	"net/url"
 	"strings"
 	"time"
@@ -57,7 +57,7 @@ func (s *authService) RequestPasswordReset(ctx context.Context, email string) er
 		return err
 	}
 	if recent >= maxResetEmailsPerHour {
-		log.Printf("[auth] password reset throttled for user %s (%d requests in the last hour)", user.ID, recent)
+		slog.Warn("password reset throttled", "user_id", user.ID, "recent_requests", recent)
 		return nil
 	}
 
@@ -84,7 +84,7 @@ func (s *authService) RequestPasswordReset(ctx context.Context, email string) er
 		sendCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		if err := s.reset.Mailer.Send(sendCtx, msg); err != nil {
-			log.Printf("[auth] failed to send password reset email to user %s: %v", user.ID, err)
+			slog.Error("failed to send password reset email", "user_id", user.ID, "error", err)
 		}
 	})
 	return nil

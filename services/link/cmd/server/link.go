@@ -3,6 +3,7 @@ package main
 import (
     "context"
     "log"
+    "log/slog"
     "net"
     "os"
     "os/signal"
@@ -18,7 +19,12 @@ import (
     "github.com/deaprima/linkforge/services/shared/database"
     "github.com/deaprima/linkforge/services/shared/kafka"
     pb "github.com/deaprima/linkforge/services/shared/proto/link"
+    "github.com/deaprima/linkforge/services/shared/logger"
+    "github.com/deaprima/linkforge/services/shared/metrics"
+    "github.com/deaprima/linkforge/services/shared/ops"
     "github.com/joho/godotenv"
+    "github.com/prometheus/client_golang/prometheus"
+    "github.com/prometheus/client_golang/prometheus/promauto"
     "google.golang.org/grpc"
     "google.golang.org/grpc/health"
     healthpb "google.golang.org/grpc/health/grpc_health_v1"
@@ -28,8 +34,10 @@ const clickTopicPartitions = 3
 
 func main() {
     // Sama seperti Auth & Gateway: dijalankan dari folder services/, .env ada di root repo
-    if err := godotenv.Load("../.env"); err != nil {
-        log.Println("No .env file found, reading from environment")
+    envErr := godotenv.Load("../.env")
+    logger.Setup("link") // setelah .env dimuat supaya LOG_LEVEL / LOG_FORMAT terbaca
+    if envErr != nil {
+        slog.Warn("No .env file found, reading from environment")
     }
 
     cfg := config.LoadConfig()
@@ -37,7 +45,7 @@ func main() {
     // Koneksi database
     db, err := database.ConnectPostgres(cfg.DatabaseDSN, true)
     if err != nil {
-        log.Fatalf("Failed to connect to database: %v", err)
+        logger.Fatalf("Failed to connect to database: %v", err)
     }
 
     // Auto migration
@@ -47,7 +55,7 @@ func main() {
         &entity.BlockedDomain{},
     )
     if err != nil {
-        log.Fatalf("Database migration failed: %v", err)
+        logger.Fatalf("Database migration failed: %v", err)
     }
     log.Println("Database migration completed successfully!")
 
@@ -70,11 +78,25 @@ func main() {
     // Setup gRPC server
     lis, err := net.Listen("tcp", ":"+cfg.GRPCPort)
     if err != nil {
-        log.Fatalf("Failed to listen on port %s: %v", cfg.GRPCPort, err)
+        logger.Fatalf("Failed to listen on port %s: %v", cfg.GRPCPort, err)
     }
 
-    grpcServer := grpc.NewServer()
+    grpcServer := grpc.NewServer(
+        grpc.ChainUnaryInterceptor(metrics.UnaryServerInterceptor()),
+        grpc.ChainStreamInterceptor(metrics.StreamServerInterceptor()),
+    )
     pb.RegisterLinkServiceServer(grpcServer, linkHandler)
+
+    // Event klik yang tidak sampai ke Kafka: dibuang (buffer penuh) atau gagal dikirim
+    promauto.NewCounterFunc(prometheus.CounterOpts{
+        Name: "link_click_events_dropped_total",
+        Help: "Event link.clicked dibuang karena buffer publisher penuh.",
+    }, func() float64 { return float64(publisher.Dropped()) })
+    promauto.NewCounterFunc(prometheus.CounterOpts{
+        Name: "link_click_events_failed_total",
+        Help: "Event link.clicked yang gagal dikirim ke Kafka.",
+    }, func() float64 { return float64(publisher.Failed()) })
+    stopOps := ops.Serve(ops.AddrFromEnv("LINK_METRICS_ADDR", ":9102"))
 
     // Standard gRPC health check, dipakai Gateway untuk /readyz
     healthServer := health.NewServer()
@@ -83,7 +105,7 @@ func main() {
     go func() {
         log.Printf("Link Service gRPC server running on port %s...", cfg.GRPCPort)
         if err := grpcServer.Serve(lis); err != nil {
-            log.Fatalf("Failed to serve gRPC: %v", err)
+            logger.Fatalf("Failed to serve gRPC: %v", err)
         }
     }()
 
@@ -96,6 +118,9 @@ func main() {
     healthServer.Shutdown()
     // GracefulStop dulu supaya tidak ada request baru yang publish event setelah publisher ditutup
     grpcServer.GracefulStop()
+    opsCtx, cancelOps := context.WithTimeout(context.Background(), 5*time.Second)
+    defer cancelOps()
+    _ = stopOps(opsCtx)
 
     flushCtx, cancelFlush := context.WithTimeout(context.Background(), 10*time.Second)
     defer cancelFlush()
