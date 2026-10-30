@@ -74,3 +74,31 @@ jobs:
         with:
           node-version: 22
       - run: npx --yes @apidevtools/swagger-cli validate api/openapi.yml
+
+  docker:
+    name: Docker (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [gateway, auth, link, analytics, edge]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Production compose file is valid
+        if: matrix.target == 'gateway'
+        run: |
+          {
+            echo DB_PASSWORD=x
+            echo JWT_SECRET=x
+            echo GRAFANA_ADMIN_PASSWORD=x
+            echo SITE_ADDRESS=example.com
+            echo ACME_EMAIL=a@example.com
+          } > ci.env
+          docker compose --env-file ci.env -f docker-compose.prod.yml config -q
+      - name: Build image
+        run: |
+          if [ "${{ matrix.target }}" = edge ]; then
+            docker build -f deploy/Dockerfile.edge -t linkforge/edge .
+          else
+            docker build -f services/Dockerfile --build-arg SERVICE=${{ matrix.target }} -t linkforge/${{ matrix.target }} services
+          fi
