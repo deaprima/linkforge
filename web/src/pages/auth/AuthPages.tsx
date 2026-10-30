@@ -157,6 +157,13 @@ export function RegisterPage() {
         <Button type="submit" className="w-full" loading={register.isPending}>
           Create account
         </Button>
+        <p className="text-center text-[13px] leading-[1.45] text-graphite">
+          LinkForge is a portfolio project. By creating an account you accept the{" "}
+          <Link to="/app/terms" className="font-semibold text-ink underline">
+            terms
+          </Link>
+          .
+        </p>
       </form>
       <Divider label="or" />
       <GoogleButton />

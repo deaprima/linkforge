@@ -186,6 +186,9 @@ function TitleBlock() {
           <Link to="/app/docs" className="hover:underline">
             API
           </Link>
+          <Link to="/app/terms" className="hover:underline">
+            Terms
+          </Link>
         </span>
       </TitleCell>
       <TitleCell label="Rev." className="lg:flex-[0.5]">
