@@ -108,3 +108,49 @@ func TestOpsEndpoints_NotRateLimited(t *testing.T) {
 		}
 	}
 }
+
+// Landing page memanggil /auth/refresh untuk setiap pengunjung anonim; itu tidak boleh menghabiskan
+// kuota login/register milik orang lain di IP yang sama (kantor, kampus, NAT).
+func TestRefresh_HasItsOwnBucketSeparateFromLogin(t *testing.T) {
+	env := newEnv()
+	env.authLimit = 2
+	env.refreshLimit = 5
+
+	for i := 0; i < 5; i++ {
+		if w := env.do(t, "POST", "/api/v1/auth/refresh", `{}`, fromIP("198.51.100.9")); w.Code == http.StatusTooManyRequests {
+			t.Fatalf("refresh %d blocked too early", i+1)
+		}
+	}
+	assertError(t, env.do(t, "POST", "/api/v1/auth/refresh", `{}`, fromIP("198.51.100.9")), 429, "RATE_LIMIT_EXCEEDED")
+
+	// Kuota login di IP yang sama masih utuh
+	for i := 0; i < 2; i++ {
+		if w := env.do(t, "POST", "/api/v1/auth/login", `{}`, fromIP("198.51.100.9")); w.Code == http.StatusTooManyRequests {
+			t.Fatalf("login %d must not be affected by refresh traffic", i+1)
+		}
+	}
+}
+
+func TestRefresh_FailOpenWhenRedisDown(t *testing.T) {
+	env := newEnv()
+	env.redis.Close()
+	if w := env.do(t, "POST", "/api/v1/auth/refresh", `{}`); w.Code == http.StatusServiceUnavailable {
+		t.Errorf("refresh must not depend on the limiter: %d %s", w.Code, w.Body.String())
+	}
+}
+
+// Tebakan token / API key yang salah ditolak 401 sebelum limiter per user, jadi harus tetap dibatasi per IP.
+func TestAuthenticatedEndpoints_BadCredentialsAreLimitedPerIP(t *testing.T) {
+	env := newEnv()
+	env.publicLimit = 3
+
+	for i := 1; i <= 3; i++ {
+		assertError(t, env.do(t, "GET", "/api/v1/links", "", fromIP("198.51.100.9")), 401, "UNAUTHORIZED")
+	}
+	assertError(t, env.do(t, "GET", "/api/v1/links", "", fromIP("198.51.100.9")), 429, "RATE_LIMIT_EXCEEDED")
+	assertError(t, env.do(t, "GET", "/api/v1/analytics/summary", "", fromIP("198.51.100.9")), 429, "RATE_LIMIT_EXCEEDED")
+	assertError(t, env.do(t, "GET", "/api/v1/auth/me", "", fromIP("198.51.100.9")), 429, "RATE_LIMIT_EXCEEDED")
+
+	// IP lain tidak terpengaruh
+	assertError(t, env.do(t, "GET", "/api/v1/links", "", fromIP("203.0.113.50")), 401, "UNAUTHORIZED")
+}

@@ -50,7 +50,7 @@ type testEnv struct {
 	redisAddr string               // disimpan terpisah: Addr() tidak bisa dipanggil setelah Close()
 
 	// Batas rate limit umum per jendela 1 jam; 0 = longgar (1000) supaya test lain tidak ikut terkena limit
-	authLimit, publicLimit, userLimit int
+	authLimit, refreshLimit, publicLimit, userLimit int
 }
 
 func orDefault(n, def int) int {
@@ -101,6 +101,8 @@ func (e *testEnv) engine(t *testing.T) *gin.Engine {
 			ratelimit.ResetPasswordRules(3, 15*time.Minute), ratelimit.Options{Message: "Too many attempts. Try again later."}),
 		AuthRateLimit: ratelimit.Middleware(ratelimit.NewRedisLimiter(rdb, "rl:"),
 			ratelimit.AuthRules(orDefault(e.authLimit, 1000), time.Hour), ratelimit.Options{}),
+		RefreshRateLimit: ratelimit.Middleware(ratelimit.NewRedisLimiter(rdb, "rl:"),
+			ratelimit.RefreshRules(orDefault(e.refreshLimit, 1000), time.Hour), ratelimit.Options{FailOpen: true}),
 		PublicRateLimit: ratelimit.Middleware(ratelimit.NewRedisLimiter(rdb, "rl:"),
 			ratelimit.PublicRules(orDefault(e.publicLimit, 1000), time.Hour), ratelimit.Options{FailOpen: true}),
 		UserRateLimit: ratelimit.Middleware(ratelimit.NewRedisLimiter(rdb, "rl:"),

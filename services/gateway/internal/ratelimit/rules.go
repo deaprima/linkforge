@@ -66,3 +66,11 @@ func UserRules(perUser int, window time.Duration) RulesFunc {
 		return []Rule{{Key: "user:" + middleware.UserID(c), Limit: perUser, Window: window}}
 	}
 }
+
+// RefreshRules membatasi /auth/refresh per IP di bucket sendiri. Landing page memanggil endpoint ini untuk
+// setiap pengunjung anonim (mengecek sesi), jadi batasnya jauh lebih longgar daripada login/register.
+func RefreshRules(perIP int, window time.Duration) RulesFunc {
+	return func(c *gin.Context) []Rule {
+		return []Rule{{Key: "refresh:ip:" + c.ClientIP(), Limit: perIP, Window: window}}
+	}
+}
