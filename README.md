@@ -126,6 +126,7 @@ environment win). [`.env.example`](.env.example) lists every option with comment
 | `VERIFY_LIMIT_*`, `FORGOT_LIMIT_*`, `RESET_LIMIT_*` | Gateway | Rate limits for password checks and password reset |
 | `AUTH_LIMIT_*`, `PUBLIC_LIMIT_*`, `USER_LIMIT_*` | Gateway | General rate limits: sign-in per IP, redirects per IP, authenticated API per user |
 | `LOG_FORMAT`, `LOG_LEVEL` | all | `json` (default) or `text`; `debug`, `info`, `warn`, `error` |
+| `DB_DEBUG` | Auth, Link, Analytics | `true` prints every SQL statement with its values to the log. Development only; never in production |
 | `*_METRICS_ADDR` | all | Internal `/metrics` and `/healthz` listener (`:9100` to `:9103`). Never expose it to the internet |
 | `GEOIP_DB_PATH` | Analytics | Optional [GeoLite2-Country](https://dev.maxmind.com/geoip/geolite2-free-geolocation-data) database; without it countries show as `ZZ` |
 

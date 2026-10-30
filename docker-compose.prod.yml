@@ -1,0 +1,247 @@
+# Stack produksi LinkForge (satu VPS). Jalankan dengan env file produksi:
+#   cp .env.prod.example .env.prod   # isi rahasianya
+#   docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+# Panduan lengkap: deploy/README.md
+#
+# Hanya edge (80/443) yang terbuka ke internet. Postgres, Redis, Kafka, gRPC antar service, dan /metrics
+# hanya ada di jaringan internal; Prometheus dan Grafana hanya di loopback (akses lewat SSH tunnel).
+
+x-service: &service
+  restart: unless-stopped
+  networks: [lf]
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+x-db-env: &db-env
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_USER: ${DB_USER:-linkforge}
+  DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env.prod}
+  DB_NAME: ${DB_NAME:-linkforge}
+
+services:
+  # --- Edge: TLS otomatis, build web statis, reverse proxy ke Gateway ---
+  edge:
+    <<: *service
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.edge
+    image: linkforge/edge:${TAG:-latest}
+    depends_on:
+      gateway:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS in .env.prod (e.g. linkforge.deaprima.my.id)}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env.prod}
+    volumes:
+      - caddy_data:/data # sertifikat TLS: jangan hilang, Let's Encrypt membatasi penerbitan ulang
+      - caddy_config:/config
+
+  # --- Service aplikasi ---
+  gateway:
+    <<: *service
+    build:
+      context: services
+      args: { SERVICE: gateway }
+    image: linkforge/gateway:${TAG:-latest}
+    depends_on:
+      auth: { condition: service_healthy }
+      link: { condition: service_healthy }
+      analytics: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      GATEWAY_PORT: "8080"
+      GATEWAY_METRICS_ADDR: ":9100"
+      AUTH_GRPC_ADDR: auth:50051
+      LINK_GRPC_ADDR: link:50052
+      ANALYTICS_GRPC_ADDR: analytics:50053
+      REDIS_ADDR: redis:6379
+      BASE_URL: https://${SITE_ADDRESS:-localhost}
+      FRONTEND_URL: https://${SITE_ADDRESS:-localhost}
+      COOKIE_SECURE: "true"
+      # Edge ada di subnet ini; hanya dari sana X-Forwarded-For dipercaya (kalau tidak, semua pengunjung
+      # terlihat berasal dari IP edge dan berbagi satu kuota rate limit)
+      TRUSTED_PROXIES: 172.30.0.0/24
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URL: https://${SITE_ADDRESS:-localhost}/api/v1/auth/oauth/google/callback
+      GIN_MODE: release
+      LOG_FORMAT: json
+    healthcheck: &healthcheck
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9100/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+
+  auth:
+    <<: *service
+    build:
+      context: services
+      args: { SERVICE: auth }
+    image: linkforge/auth:${TAG:-latest}
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      <<: *db-env
+      AUTH_PORT: "50051"
+      AUTH_METRICS_ADDR: ":9101"
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env.prod (openssl rand -base64 48)}
+      JWT_ACCESS_DURATION: ${JWT_ACCESS_DURATION:-15m}
+      JWT_REFRESH_DURATION: ${JWT_REFRESH_DURATION:-168h}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      FRONTEND_URL: https://${SITE_ADDRESS:-localhost}
+      # Tanpa SMTP_HOST, email reset password hanya dicetak ke log (mode development) — jangan begitu di produksi
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-LinkForge <no-reply@linkforge.local>}
+      LOG_FORMAT: json
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9101/healthz"]
+
+  link:
+    <<: *service
+    build:
+      context: services
+      args: { SERVICE: link }
+    image: linkforge/link:${TAG:-latest}
+    depends_on:
+      postgres: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+    environment:
+      <<: *db-env
+      LINK_PORT: "50052"
+      LINK_METRICS_ADDR: ":9102"
+      KAFKA_BROKERS: kafka:29092
+      LOG_FORMAT: json
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9102/healthz"]
+
+  analytics:
+    <<: *service
+    build:
+      context: services
+      args: { SERVICE: analytics }
+    image: linkforge/analytics:${TAG:-latest}
+    depends_on:
+      postgres: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+    environment:
+      <<: *db-env
+      ANALYTICS_PORT: "50053"
+      ANALYTICS_METRICS_ADDR: ":9103"
+      KAFKA_BROKERS: kafka:29092
+      KAFKA_GROUP_ID: analytics-service
+      LOG_FORMAT: json
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9103/healthz"]
+
+  # --- Infrastruktur (tanpa port ke host) ---
+  postgres:
+    <<: *service
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${DB_USER:-linkforge}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env.prod}
+      POSTGRES_DB: ${DB_NAME:-linkforge}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    <<: *service
+    image: redis:7-alpine
+    # Hanya state rate limiter (semua key punya TTL): tanpa persistence, memori dibatasi
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "128mb", "--maxmemory-policy", "volatile-lru"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  kafka:
+    <<: *service
+    # Sama dengan docker-compose.yml (di-pin; jangan :latest)
+    image: apache/kafka:4.3.1
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:29093
+      KAFKA_LISTENERS: INTERNAL://:29092,CONTROLLER://:29093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Q
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_HEAP_OPTS: -Xms384m -Xmx384m # VPS kecil
+    volumes:
+      - kafkadata:/tmp/kraft-combined-logs
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:29092 > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # --- Monitoring (loopback saja; akses lewat `ssh -L`) ---
+  prometheus:
+    <<: *service
+    image: prom/prometheus:v2.55.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.prod.yml:/etc/prometheus/prometheus.yml:ro
+      - promdata:/prometheus
+
+  grafana:
+    <<: *service
+    image: grafana/grafana:11.3.1
+    depends_on:
+      - prometheus
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3001}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env.prod}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafanadata:/var/lib/grafana
+
+networks:
+  lf:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+
+volumes:
+  pgdata:
+  kafkadata:
+  promdata:
+  grafanadata:
+  caddy_data:
+  caddy_config:
