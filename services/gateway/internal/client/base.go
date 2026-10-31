@@ -25,7 +25,7 @@ type baseClient struct {
 }
 
 func newBaseClient(addr, breakerName string, timeout time.Duration) (baseClient, error) {
-	conn, err := grpc.NewClient(addr,
+	conn, err := grpc.NewClient(grpcTarget(addr),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithChainUnaryInterceptor(metrics.UnaryClientInterceptor(dependencyName(breakerName))),
 	)
@@ -102,4 +102,15 @@ func dependencyName(breakerName string) string {
 		return breakerName
 	}
 	return name
+}
+
+// grpcTarget memakai skema passthrough untuk alamat host:port biasa. Resolver DNS bawaan gRPC juga menanyakan
+// record TXT (service config), dan DNS bawaan Docker menjawabnya lambat: request pertama setelah start bisa
+// kena timeout. Dengan passthrough nama tetap di-resolve oleh dialer pada setiap koneksi ulang, jadi container
+// tujuan yang di-restart dan berganti IP tetap ditemukan.
+func grpcTarget(addr string) string {
+	if strings.Contains(addr, "://") {
+		return addr // skema eksplisit (mis. dns:///svc:50051) dihormati
+	}
+	return "passthrough:///" + addr
 }

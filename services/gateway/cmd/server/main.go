@@ -95,6 +95,11 @@ func main() {
 		AuthRateLimit: ratelimit.Middleware(limiter,
 			ratelimit.AuthRules(cfg.AuthLimitPerIP, cfg.AuthLimitWindow),
 			ratelimit.Options{Message: "Too many authentication attempts. Try again later."}),
+		// Bucket sendiri untuk /auth/refresh (dipanggil landing page tiap pengunjung anonim); fail-open
+		// karena token refresh 256 bit tidak bisa ditebak dan reuse detection sudah ada di Auth Service
+		RefreshRateLimit: ratelimit.Middleware(limiter,
+			ratelimit.RefreshRules(cfg.RefreshLimitPerIP, cfg.RefreshLimitWindow),
+			ratelimit.Options{FailOpen: true}),
 		// Fail-open: redirect & API biasa tetap jalan kalau Redis mati (hanya kehilangan throttling)
 		PublicRateLimit: ratelimit.Middleware(limiter,
 			ratelimit.PublicRules(cfg.PublicLimitPerIP, cfg.PublicLimitWindow),

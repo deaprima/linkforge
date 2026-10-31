@@ -346,8 +346,16 @@ func (s *authService) ValidateApiKey(ctx context.Context, rawKey string) (*entit
 	return key, nil
 }
 
+var errGoogleNotConfigured = errors.New("google sign-in is not configured")
+
 // GoogleAuth memverifikasi Google ID Token, lalu login/register user secara otomatis.
 func (s *authService) GoogleAuth(ctx context.Context, rawIDToken string) (*entity.User, *TokenResult, error) {
+    // Tanpa client ID, idtoken.Validate melewatkan pemeriksaan audience dan menerima ID token dari
+    // aplikasi Google MANA PUN. Google sign-in opsional (GOOGLE_CLIENT_ID boleh kosong), jadi tolak di sini.
+    if s.googleClientID == "" {
+        return nil, nil, fmt.Errorf("invalid google id token: %w", errGoogleNotConfigured)
+    }
+
     // 1. Verifikasi ID Token ke Google
     payload, err := s.verifyIDToken(ctx, rawIDToken, s.googleClientID)
     if err != nil {

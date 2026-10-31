@@ -48,6 +48,8 @@ func TestLoadConfig_Defaults(t *testing.T) {
 		ResetLimitWindow:    15 * time.Minute,
 		AuthLimitPerIP:      20,
 		AuthLimitWindow:     15 * time.Minute,
+		RefreshLimitPerIP:   120,
+		RefreshLimitWindow:  15 * time.Minute,
 		PublicLimitPerIP:    300,
 		PublicLimitWindow:   time.Minute,
 		UserLimitPerUser:    120,

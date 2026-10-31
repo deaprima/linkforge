@@ -58,3 +58,11 @@ func TestLoadConfig_Overrides(t *testing.T) {
 		t.Errorf("smtp = %+v", got)
 	}
 }
+
+func TestLoadConfig_GoogleClientIDIsOptional(t *testing.T) {
+	setRequired(t)
+	t.Setenv("GOOGLE_CLIENT_ID", "")
+	if got := LoadConfig().GoogleClientID; got != "" {
+		t.Errorf("GoogleClientID = %q, want empty (Google sign-in disabled)", got)
+	}
+}

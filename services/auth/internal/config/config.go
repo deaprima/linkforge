@@ -42,7 +42,7 @@ func LoadConfig() *Config {
 		JWTSecret: getEnv("JWT_SECRET"),
 		JWTAccessDur: getEnvDuration("JWT_ACCESS_DURATION"),
 		JWTRefreshDur: getEnvDuration("JWT_REFRESH_DURATION"),
-		GoogleClientID: getEnv("GOOGLE_CLIENT_ID"),
+		GoogleClientID: os.Getenv("GOOGLE_CLIENT_ID"), // opsional: kosong = Google sign-in nonaktif
 
 		FrontendURL:   getEnvDefault("FRONTEND_URL", "http://localhost:5173"),
 		ResetTokenTTL: getEnvDurationDefault("PASSWORD_RESET_TTL", time.Hour),

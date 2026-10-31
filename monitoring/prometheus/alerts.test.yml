@@ -1,0 +1,160 @@
+# Unit test untuk alerts.yml: promtool test rules monitoring/prometheus/alerts.test.yml
+# Tiap aturan diuji dua arah: harus menyala saat kondisinya terpenuhi, dan TIDAK menyala saat sehat atau sepi.
+rule_files:
+  - alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: ServiceDown fires after 2 minutes and names the service
+    interval: 1m
+    input_series:
+      - series: 'up{job="auth", instance="auth:9101"}'
+        values: '1 1 0 0 0 0'
+      - series: 'up{job="gateway", instance="gateway:9100"}'
+        values: '1 1 1 1 1 1'
+    alert_rule_test:
+      - eval_time: 3m # down baru 1 menit
+        alertname: ServiceDown
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: ServiceDown
+        exp_alerts:
+          - exp_labels: { severity: critical, job: auth, instance: "auth:9101" }
+            exp_annotations:
+              summary: "auth is down"
+              description: "Prometheus cannot scrape auth (auth:9101) for 2 minutes. The container is down, restarting in a loop, or the ops listener is unreachable."
+
+  - name: HighErrorRatio fires on sustained 5xx with real traffic
+    interval: 1m
+    input_series:
+      # 10 req/s total, 20% di antaranya 5xx
+      - series: 'http_requests_total{status="200", route="/api/v1/links"}'
+        values: '0+480x15'
+      - series: 'http_requests_total{status="500", route="/api/v1/links"}'
+        values: '0+120x15'
+    alert_rule_test:
+      - eval_time: 4m # kondisi baru terpenuhi < 5 menit
+        alertname: HighErrorRatio
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: HighErrorRatio
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations:
+              summary: "More than 5% of requests fail with 5xx"
+              description: "20% of Gateway responses were 5xx over the last 5 minutes. Check `docker compose logs gateway` and the circuit breaker panel."
+
+  - name: HighErrorRatio stays quiet when traffic is negligible
+    interval: 1m
+    input_series:
+      # 100% error tapi hanya ~0.017 req/s (1 request per menit): bukan insiden
+      - series: 'http_requests_total{status="500", route="/api/v1/links"}'
+        values: '0+1x30'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: HighErrorRatio
+        exp_alerts: []
+
+  - name: HighErrorRatio stays quiet when errors are rare
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{status="200", route="/api/v1/links"}'
+        values: '0+600x20'
+      - series: 'http_requests_total{status="500", route="/api/v1/links"}'
+        values: '0+6x20' # 1%
+    alert_rule_test:
+      - eval_time: 18m
+        alertname: HighErrorRatio
+        exp_alerts: []
+
+  - name: CircuitBreakerOpen fires only for the open state
+    interval: 1m
+    input_series:
+      - series: 'circuit_breaker_state{name="gateway->auth"}'
+        values: '0 0 2 2 2 2'
+      - series: 'circuit_breaker_state{name="gateway->link"}'
+        values: '0 1 1 1 1 1' # half-open bukan open
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: CircuitBreakerOpen
+        exp_alerts:
+          - exp_labels: { severity: critical, name: "gateway->auth" }
+            exp_annotations:
+              summary: "Circuit breaker gateway->auth is open"
+              description: "The Gateway stopped calling gateway->auth because too many calls failed. Users get 503 for features that depend on it."
+
+  - name: KafkaConsumerLagHigh needs sustained lag
+    interval: 1m
+    input_series:
+      - series: 'kafka_consumer_lag{topic="link.clicked", group="analytics-service"}'
+        values: '5 5 5 1500x14' # lonjakan sesaat lalu tetap tinggi
+    alert_rule_test:
+      - eval_time: 8m # tinggi baru ~5 menit
+        alertname: KafkaConsumerLagHigh
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: KafkaConsumerLagHigh
+        exp_alerts:
+          - exp_labels: { severity: warning, topic: "link.clicked", group: "analytics-service" }
+            exp_annotations:
+              summary: "Analytics consumer is 1500 messages behind"
+              description: "Clicks are queued faster than Analytics stores them, so dashboards lag behind reality. Check `docker compose logs analytics` and Postgres."
+
+  - name: ClickEventsLost fires immediately and recovers
+    interval: 1m
+    input_series:
+      - series: 'link_click_events_dropped_total'
+        values: '0 0 0 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3'
+      - series: 'link_click_events_failed_total'
+        values: '0x23'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: ClickEventsLost
+        exp_alerts:
+          - exp_labels: { severity: warning }
+            exp_annotations:
+              summary: "Click events are being lost before Kafka"
+              description: "The Link service dropped or failed to publish click events in the last 10 minutes (Kafka down or the buffer is full). These clicks will be missing from analytics."
+      - eval_time: 20m # 10 menit sejak lonjakan terakhir: sudah tidak ada kenaikan di jendela
+        alertname: ClickEventsLost
+        exp_alerts: []
+
+  - name: DependencyErrorRatio fires per dependency
+    interval: 1m
+    input_series:
+      - series: 'grpc_client_handled_total{dependency="link", grpc_code="OK", grpc_method="LinkService/ResolveAlias"}'
+        values: '0+60x15'
+      - series: 'grpc_client_handled_total{dependency="link", grpc_code="Unavailable", grpc_method="LinkService/ResolveAlias"}'
+        values: '0+60x15' # 50% gagal
+      - series: 'grpc_client_handled_total{dependency="auth", grpc_code="OK", grpc_method="AuthService/ValidateToken"}'
+        values: '0+60x15'
+      - series: 'grpc_client_handled_total{dependency="auth", grpc_code="NotFound", grpc_method="AuthService/ValidateToken"}'
+        values: '0+60x15' # error bisnis, bukan infrastruktur: tidak dihitung
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: DependencyErrorRatio
+        exp_alerts:
+          - exp_labels: { severity: warning, dependency: link }
+            exp_annotations:
+              summary: "gRPC calls to link are failing"
+              description: "50% of calls from the Gateway to link fail with an infrastructure error. The breaker will open if this continues."
+
+  - name: ServiceTargetMissing fires when a target vanishes
+    interval: 1m
+    input_series:
+      - series: 'up{job="gateway"}'
+        values: '1x10'
+      - series: 'up{job="auth"}'
+        values: '1x10'
+      - series: 'up{job="link"}'
+        values: '1x10'
+      # analytics tidak pernah ada
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: ServiceTargetMissing
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations:
+              summary: "Fewer than 4 LinkForge services are monitored"
+              description: "Only 3 of gateway, auth, link, analytics report an `up` series. Check the scrape config."

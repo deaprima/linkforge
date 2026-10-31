@@ -31,12 +31,16 @@ type Handlers struct {
 	ForgotRateLimit gin.HandlerFunc
 	ResetRateLimit  gin.HandlerFunc
 
-	// AuthRateLimit (per IP, fail-closed): register/login/refresh/OAuth.
-	// PublicRateLimit (per IP, fail-open): redirect dan WebSocket realtime.
+	// AuthRateLimit (per IP, fail-closed): register/login/OAuth.
+	// RefreshRateLimit (per IP, fail-open): /auth/refresh, bucket sendiri karena landing page memanggilnya untuk
+	// setiap pengunjung anonim dan tidak boleh menghabiskan kuota login pengguna lain di IP yang sama.
+	// PublicRateLimit (per IP, fail-open): redirect, WebSocket realtime, dan di depan RequireAuth supaya tebakan
+	// token / API key yang salah (401) tetap terbatas.
 	// UserRateLimit (per user, fail-open): semua endpoint terautentikasi, dipasang setelah RequireAuth.
-	AuthRateLimit   gin.HandlerFunc
-	PublicRateLimit gin.HandlerFunc
-	UserRateLimit   gin.HandlerFunc
+	AuthRateLimit    gin.HandlerFunc
+	RefreshRateLimit gin.HandlerFunc
+	PublicRateLimit  gin.HandlerFunc
+	UserRateLimit    gin.HandlerFunc
 }
 
 type Options struct {
@@ -51,8 +55,8 @@ func New(h Handlers, opts Options) (*gin.Engine, error) {
 	if h.ForgotRateLimit == nil || h.ResetRateLimit == nil {
 		return nil, errors.New("router: ForgotRateLimit and ResetRateLimit middleware are required")
 	}
-	if h.AuthRateLimit == nil || h.PublicRateLimit == nil || h.UserRateLimit == nil {
-		return nil, errors.New("router: AuthRateLimit, PublicRateLimit and UserRateLimit middleware are required")
+	if h.AuthRateLimit == nil || h.RefreshRateLimit == nil || h.PublicRateLimit == nil || h.UserRateLimit == nil {
+		return nil, errors.New("router: AuthRateLimit, RefreshRateLimit, PublicRateLimit and UserRateLimit middleware are required")
 	}
 	registerJSONTagNames()
 
@@ -81,14 +85,14 @@ func New(h Handlers, opts Options) (*gin.Engine, error) {
 	auth := api.Group("/auth")
 	auth.POST("/register", h.AuthRateLimit, h.Auth.Register)
 	auth.POST("/login", h.AuthRateLimit, h.Auth.Login)
-	auth.POST("/refresh", h.AuthRateLimit, h.Auth.Refresh)
+	auth.POST("/refresh", h.RefreshRateLimit, h.Auth.Refresh)
 	auth.POST("/forgot-password", h.ForgotRateLimit, h.Auth.ForgotPassword)
 	auth.POST("/reset-password", h.ResetRateLimit, h.Auth.ResetPassword)
 	auth.GET("/oauth/google", h.AuthRateLimit, h.Auth.GoogleLogin)
 	auth.GET("/oauth/google/callback", h.AuthRateLimit, h.Auth.GoogleCallback)
 
 	// Manajemen akun: Bearer token saja, API key tidak berlaku
-	account := auth.Group("", middleware.RequireAuth(h.Validator, false), h.UserRateLimit)
+	account := auth.Group("", h.PublicRateLimit, middleware.RequireAuth(h.Validator, false), h.UserRateLimit)
 	account.POST("/logout", h.Auth.Logout)
 	account.GET("/me", h.Auth.Me)
 	account.POST("/api-keys", h.Auth.CreateApiKey)
@@ -96,7 +100,7 @@ func New(h Handlers, opts Options) (*gin.Engine, error) {
 	account.DELETE("/api-keys/:id", h.Auth.DeleteApiKey)
 
 	// Links: Bearer token atau API key
-	links := api.Group("/links", middleware.RequireAuth(h.Validator, true), h.UserRateLimit)
+	links := api.Group("/links", h.PublicRateLimit, middleware.RequireAuth(h.Validator, true), h.UserRateLimit)
 	links.POST("", h.Link.Create)
 	links.GET("", h.Link.List)
 	links.GET("/:id", h.Link.Get)
@@ -107,7 +111,7 @@ func New(h Handlers, opts Options) (*gin.Engine, error) {
 	// Analytics: Bearer token atau API key; WebSocket memvalidasi token sendiri (bisa via query param)
 	analytics := api.Group("/analytics")
 	analytics.GET("/realtime", h.PublicRateLimit, h.Analytics.Realtime)
-	stats := analytics.Group("", middleware.RequireAuth(h.Validator, true), h.UserRateLimit)
+	stats := analytics.Group("", h.PublicRateLimit, middleware.RequireAuth(h.Validator, true), h.UserRateLimit)
 	stats.GET("/summary", h.Analytics.Summary)
 	stats.GET("/links/:id", h.Analytics.LinkStats)
 

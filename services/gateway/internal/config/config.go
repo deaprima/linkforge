@@ -45,6 +45,8 @@ type Config struct {
 	// Rate limit umum: auth publik & redirect per IP, endpoint terautentikasi per user
 	AuthLimitPerIP    int
 	AuthLimitWindow   time.Duration
+	RefreshLimitPerIP  int
+	RefreshLimitWindow time.Duration
 	PublicLimitPerIP  int
 	PublicLimitWindow time.Duration
 	UserLimitPerUser  int
@@ -87,6 +89,8 @@ func LoadConfig() *Config {
 
 		AuthLimitPerIP:    getEnvInt("AUTH_LIMIT_PER_IP", 20),
 		AuthLimitWindow:   getEnvDuration("AUTH_LIMIT_WINDOW", 15*time.Minute),
+		RefreshLimitPerIP:  getEnvInt("REFRESH_LIMIT_PER_IP", 120),
+		RefreshLimitWindow: getEnvDuration("REFRESH_LIMIT_WINDOW", 15*time.Minute),
 		PublicLimitPerIP:  getEnvInt("PUBLIC_LIMIT_PER_IP", 300),
 		PublicLimitWindow: getEnvDuration("PUBLIC_LIMIT_WINDOW", time.Minute),
 		UserLimitPerUser:  getEnvInt("USER_LIMIT_PER_USER", 120),

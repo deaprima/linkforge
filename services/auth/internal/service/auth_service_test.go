@@ -487,3 +487,25 @@ func TestGoogleAuth_LinkedUserMissing(t *testing.T) {
 	_, _, err := env.svc.GoogleAuth(context.Background(), "id-token")
 	wantErrContains(t, err, "linked user not found")
 }
+
+// Google sign-in opsional: tanpa client ID, idtoken.Validate melewatkan pemeriksaan audience sehingga
+// ID token dari aplikasi Google mana pun akan diterima. Service harus menolak sebelum menghubungi Google.
+func TestGoogleAuth_RejectedWhenClientIDNotConfigured(t *testing.T) {
+	env := newTestEnv()
+	env.svc.googleClientID = ""
+	verifierCalled := false
+	env.svc.verifyIDToken = func(context.Context, string, string) (*idtoken.Payload, error) {
+		verifierCalled = true
+		return googlePayload("sub", "victim@gmail.com", true), nil // verifier yang menerima apa saja
+	}
+
+	_, _, err := env.svc.GoogleAuth(context.Background(), "id-token-from-any-google-app")
+	wantErrContains(t, err, "invalid google id token")
+	wantErrContains(t, err, "not configured")
+	if verifierCalled {
+		t.Error("the token must not be verified at all when no client id is configured")
+	}
+	if len(env.oauth.accounts) != 0 || len(env.users.users) != 0 {
+		t.Error("no user or oauth account may be created")
+	}
+}

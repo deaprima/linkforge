@@ -43,7 +43,7 @@ func main() {
     cfg := config.LoadConfig()
 
     // Koneksi database
-    db, err := database.ConnectPostgres(cfg.DatabaseDSN, true)
+    db, err := database.ConnectPostgres(cfg.DatabaseDSN, database.DebugFromEnv())
     if err != nil {
         logger.Fatalf("Failed to connect to database: %v", err)
     }

@@ -125,3 +125,17 @@ func TestDependencyName(t *testing.T) {
 		}
 	}
 }
+
+func TestGRPCTarget(t *testing.T) {
+	cases := map[string]string{
+		"auth:50051":             "passthrough:///auth:50051",
+		"localhost:50051":        "passthrough:///localhost:50051",
+		"dns:///auth:50051":      "dns:///auth:50051",
+		"unix:///tmp/auth.sock":  "unix:///tmp/auth.sock",
+	}
+	for in, want := range cases {
+		if got := grpcTarget(in); got != want {
+			t.Errorf("grpcTarget(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

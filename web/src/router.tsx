@@ -66,6 +66,7 @@ export const router = createBrowserRouter([
       { path: "/app/profile", ...lazyPage(() => import("@/pages/app/ProfilePage"), (m) => m.ProfilePage) },
     ],
   },
+  { path: "/app/terms", ...lazyPage(() => import("@/pages/public/TermsPage"), (m) => m.TermsPage) },
   { path: "/app/p/:alias", ...lazyPage(publicPages, (m) => m.PasswordGatePage) },
   { path: "/app/not-found", ...lazyPage(publicPages, (m) => m.NotFoundPage) },
   { path: "/app/expired", ...lazyPage(publicPages, (m) => m.ExpiredPage) },
