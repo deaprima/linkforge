@@ -214,7 +214,26 @@ services:
       - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
     volumes:
       - ./monitoring/prometheus/prometheus.prod.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
       - promdata:/prometheus
+
+  # Menerima alert dari Prometheus dan mengirim email. Tanpa ALERT_EMAIL_TO alert hanya terlihat di UI.
+  alertmanager:
+    <<: *service
+    image: prom/alertmanager:v0.27.0
+    entrypoint: ["/bin/sh", "/etc/alertmanager/entrypoint.sh"]
+    environment:
+      ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
+      ALERT_SMTP_HOST: ${SMTP_HOST:-}
+      ALERT_SMTP_PORT: ${SMTP_PORT:-587}
+      ALERT_SMTP_USER: ${SMTP_USER:-}
+      ALERT_SMTP_PASS: ${SMTP_PASS:-}
+      ALERT_SMTP_FROM: ${SMTP_FROM:-}
+    ports:
+      - "127.0.0.1:${ALERTMANAGER_PORT:-9093}:9093"
+    volumes:
+      - ./monitoring/alertmanager/entrypoint.sh:/etc/alertmanager/entrypoint.sh:ro
+      - alertdata:/alertmanager
 
   grafana:
     <<: *service
@@ -242,6 +261,7 @@ volumes:
   pgdata:
   kafkadata:
   promdata:
+  alertdata:
   grafanadata:
   caddy_data:
   caddy_config:
