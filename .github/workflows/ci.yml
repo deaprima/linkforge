@@ -102,3 +102,20 @@ jobs:
           else
             docker build -f services/Dockerfile --build-arg SERVICE=${{ matrix.target }} -t linkforge/${{ matrix.target }} services
           fi
+
+  alerts:
+    name: Prometheus alert rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check rules and run their unit tests
+        run: |
+          docker run --rm --entrypoint promtool -v "$PWD/monitoring/prometheus:/rules:ro" prom/prometheus:v2.55.1 check rules /rules/alerts.yml
+          docker run --rm --entrypoint promtool -v "$PWD/monitoring/prometheus:/rules:ro" prom/prometheus:v2.55.1 test rules /rules/alerts.test.yml
+      - name: Check the Alertmanager config the entrypoint generates
+        run: |
+          docker run --rm --entrypoint /bin/sh -v "$PWD/monitoring/alertmanager:/am:ro" \
+            -e ALERT_GENERATE_ONLY=1 -e ALERT_CONFIG_OUT=/tmp/am.yml \
+            -e ALERT_EMAIL_TO=ops@example.com -e ALERT_SMTP_HOST=smtp.example.com -e 'ALERT_SMTP_FROM=LinkForge <no-reply@example.com>' \
+            -e ALERT_SMTP_USER=mailer -e 'ALERT_SMTP_PASS=p"a\ss&w|o/r$d' \
+            prom/alertmanager:v0.27.0 -c 'sh /am/entrypoint.sh && /bin/amtool check-config /tmp/am.yml'
