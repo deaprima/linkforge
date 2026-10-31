@@ -109,13 +109,48 @@ Let's Encrypt rate-limits repeated issuance.
 
 ## 6. Monitoring
 
-Prometheus and Grafana are bound to `127.0.0.1` on the server. Reach them through an SSH tunnel:
+Prometheus, Alertmanager and Grafana are bound to `127.0.0.1` on the server. Reach them through an SSH tunnel:
 
 ```bash
-ssh -L 3001:127.0.0.1:3001 -L 9090:127.0.0.1:9090 user@your-vps
-# Grafana:    http://localhost:3001   (admin / GRAFANA_ADMIN_PASSWORD) → LinkForge Overview
-# Prometheus: http://localhost:9090   (Status → Targets: all four services should be UP)
+ssh -L 3001:127.0.0.1:3001 -L 9090:127.0.0.1:9090 -L 9093:127.0.0.1:9093 user@your-vps
+# Grafana:      http://localhost:3001   (admin / GRAFANA_ADMIN_PASSWORD) → LinkForge Overview
+# Prometheus:   http://localhost:9090   (Status → Targets: all four services should be UP; Alerts)
+# Alertmanager: http://localhost:9093
 ```
+
+### Alerts
+
+The rules live in [`monitoring/prometheus/alerts.yml`](../monitoring/prometheus/alerts.yml) and have unit tests next to them
+(`promtool test rules monitoring/prometheus/alerts.test.yml`). `critical` means something is broken now; `warning` means look
+at it when you can.
+
+| Alert | Severity | Fires when |
+|---|---|---|
+| `ServiceDown` | critical | A service has not been scrapeable for 2 minutes |
+| `ServiceTargetMissing` | critical | Fewer than 4 services report at all (target removed from the scrape config) |
+| `HighErrorRatio` | critical | More than 5% of responses are 5xx for 5 minutes, with real traffic (over 0.1 req/s) |
+| `CircuitBreakerOpen` | critical | A Gateway circuit breaker stays open for 1 minute |
+| `DependencyErrorRatio` | warning | More than 10% of gRPC calls to one dependency fail with an infrastructure error |
+| `HighLatency` | warning | p95 latency above 1 s for 10 minutes (the realtime WebSocket is excluded) |
+| `HeavyRateLimiting` | warning | Over 1 request per second is answered with 429 for 10 minutes |
+| `KafkaConsumerLagHigh` | warning | The Analytics consumer is more than 1000 messages behind for 10 minutes |
+| `ClickEventsLost` | warning | The Link service dropped or failed to publish click events |
+| `InvalidClickEvents` | warning | Analytics skipped events it could not decode |
+
+A `ServiceDown` for a service silences that service's warnings, so one outage is one email, not five.
+
+**Email.** Set `ALERT_EMAIL_TO` in `.env.prod`; alerts are sent through the same `SMTP_*` settings used for password reset.
+Without `ALERT_EMAIL_TO` nothing is sent and alerts are only visible in the Prometheus and Alertmanager UIs, so set it before
+relying on this. Critical alerts repeat every 4 hours while they last, warnings every 12 hours. To test delivery end to end:
+
+```bash
+lf exec alertmanager amtool alert add TestAlert severity=critical job=manual --annotation=summary="Test alert" \
+  --alertmanager.url=http://127.0.0.1:9093
+```
+
+This only watches the application. There are no exporters for the host, Postgres, Redis or Kafka itself, so a full disk,
+exhausted memory or a dead database show up only indirectly (as `ServiceDown` or `HighErrorRatio`). Add `node_exporter`
+and a Postgres exporter if you need to see those coming.
 
 ## 7. Troubleshooting
 
