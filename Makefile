@@ -32,4 +32,17 @@ test-integration:
 cover:
 	TEST_DSN="$(TEST_DSN)" bash scripts/coverage.sh
 
-.PHONY: proto test test-integration cover
+## Infrastruktur development (Postgres, Redis, Kafka); menunggu sampai semua healthy
+up:
+	docker compose up -d --wait postgres redis kafka
+
+## Matikan semua container development (data di volume tetap aman)
+down:
+	docker compose down
+
+## Lint backend (go vet) dan frontend (eslint)
+lint:
+	cd services && go vet ./...
+	cd web && npm run lint
+
+.PHONY: proto test test-integration cover up down lint
