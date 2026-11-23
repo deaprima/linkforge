@@ -1,43 +1,111 @@
-# LinkForge
+<div align="center">
 
-[![CI](https://github.com/deaprima/linkforge/actions/workflows/ci.yml/badge.svg)](https://github.com/deaprima/linkforge/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-black.svg)](LICENSE)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="web/src/assets/brand/mark-dark.svg">
+  <img src="web/src/assets/brand/mark-light.svg" alt="LinkForge logo" width="96" height="96">
+</picture>
+
+# LinkForge
 
 **Shorten a link. See who clicks it.**
 
-LinkForge is an open source URL shortener built as four Go microservices behind one HTTP gateway, with a React web app.
-It does the usual things (custom aliases, expiry, passwords, QR codes, click analytics) and is written to show how the
-parts around them are built: event streaming, circuit breakers, rate limiting and session security.
+An open source URL shortener built as four Go microservices behind one HTTP gateway, with a React web app: custom aliases, expiry, passwords, QR codes and click analytics, plus the parts around them that real systems need: event streaming, circuit breakers, rate limiting, session security and observability.
 
-- **Short links** with custom aliases, expiry dates and optional passwords (brute-force protected).
-- **QR codes** for any link, as PNG or SVG.
-- **Analytics** by day, country, browser and device, plus a live click stream over WebSocket.
-- **API keys** for scripts and CI, and **Google sign-in** next to email and password.
-- **Password reset by email**, with single-use, hashed, expiring tokens.
-- **Resilient by design**: every service call goes through a circuit breaker, and the redirect keeps working when analytics is down.
-- **Documented**: [`api/openapi.yml`](api/openapi.yml) is the single source for the API reference page in the web app and for Swagger UI.
+**English** · [Bahasa Indonesia](README.id.md)
+
+[![CI](https://github.com/deaprima/linkforge/actions/workflows/ci.yml/badge.svg)](https://github.com/deaprima/linkforge/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-18A957.svg)](LICENSE)
+[![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)](services/go.mod)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](web/package.json)
+[![Kafka](https://img.shields.io/badge/Kafka-4.3-231F20?logo=apachekafka&logoColor=white)](docker-compose.yml)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)](docker-compose.yml)
+[![OpenAPI](https://img.shields.io/badge/OpenAPI-3.0-6BA539?logo=openapiinitiative&logoColor=white)](api/openapi.yml)
+
+[Quick start](#quick-start) · [Features](#features) · [Architecture](#architecture) · [API](#api) · [Deployment](#deployment) · [Contributing](#contributing)
+
+</div>
+
+---
+
+## Why LinkForge
+
+A URL shortener is simple on the surface: store a long URL, hand out a short one, redirect. LinkForge uses that small
+product to show how the surrounding system is built properly:
+
+- **The redirect never waits.** Clicks are published to Kafka and counted asynchronously, so a slow or broken analytics
+  service never slows a redirect down.
+- **Failures stay contained.** Every call between services goes through a circuit breaker. When a dependency is down,
+  the rest keeps working and browsers land on a friendly page instead of an error.
+- **Abuse is expected.** Sign-in, password checks, password reset and the public API are rate limited per IP, per user
+  or per link.
+- **You can see what it is doing.** Structured logs with request IDs, Prometheus metrics, a Grafana dashboard and tested
+  alert rules.
+
+## Features
+
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <h3>Short links</h3>
+      Custom aliases, expiry dates and optional passwords. Password guesses are limited per link and per IP, and an expired link answers <code>410</code>.
+    </td>
+    <td width="33%" valign="top">
+      <h3>QR codes</h3>
+      A QR code for any link, rendered by the Gateway as PNG or SVG and ready to download from the dashboard.
+    </td>
+    <td width="33%" valign="top">
+      <h3>Click analytics</h3>
+      Clicks by day, country, browser and device, unique visitors, and a live click stream over WebSocket.
+    </td>
+  </tr>
+  <tr>
+    <td width="33%" valign="top">
+      <h3>Event driven</h3>
+      Link publishes a <code>link.clicked</code> event for every redirect and Analytics consumes it. Events that cannot reach Kafka are counted, not silently dropped.
+    </td>
+    <td width="33%" valign="top">
+      <h3>Resilient by design</h3>
+      A circuit breaker per gRPC dependency. Redirects keep working while Analytics is down, and browsers see a <code>503</code> page instead of raw JSON.
+    </td>
+    <td width="33%" valign="top">
+      <h3>Rate limiting</h3>
+      Redis backed limits per IP, per user and per link. Password checks and password reset fail closed when Redis is unavailable.
+    </td>
+  </tr>
+  <tr>
+    <td width="33%" valign="top">
+      <h3>Session security</h3>
+      Short lived JWT access tokens, rotating refresh tokens with reuse detection in an HttpOnly cookie, API keys for scripts, Google sign-in, and single-use hashed password reset tokens.
+    </td>
+    <td width="33%" valign="top">
+      <h3>Observability</h3>
+      JSON logs with request IDs, Prometheus metrics for HTTP, gRPC, breakers and Kafka, a provisioned Grafana dashboard, and alert rules with unit tests that email through Alertmanager.
+    </td>
+    <td width="33%" valign="top">
+      <h3>Contract first</h3>
+      <code>api/openapi.yml</code> is the single source for the API reference page in the web app and for Swagger UI, and CI validates it on every push.
+    </td>
+  </tr>
+</table>
+
+## Tech stack
+
+| Layer | Technology |
+|---|---|
+| **Frontend** | React 19, TypeScript, Vite, Tailwind CSS v4, TanStack Query, React Router 7, Radix UI |
+| **Backend** | Go, Gin (gateway), gRPC + Protocol Buffers, GORM, `segmentio/kafka-go`, `sony/gobreaker` |
+| **Data** | PostgreSQL 16 (one schema per service), Redis 7 (rate limits), Kafka 4.3 in KRaft mode |
+| **API contract** | OpenAPI 3 (`api/openapi.yml`), rendered in the web app and in Swagger UI |
+| **Observability** | `log/slog`, Prometheus, Grafana, Alertmanager |
+| **Deployment** | Docker, Docker Compose, Caddy (automatic HTTPS) |
+| **Testing** | Go tests with in-memory fakes, integration tests against real Postgres and Kafka, Vitest + Testing Library, `promtool` rule tests |
 
 ## Architecture
 
-```
-                    ┌──────────────┐
-  Browser / CLI ───▶│   Gateway    │──── Redis (rate limits)
-   HTTP + WebSocket │  (Gin, :8080)│
-                    └──────┬───────┘
-                 gRPC      │      gRPC           gRPC
-              ┌────────────┼──────────────┐
-              ▼            ▼              ▼
-        ┌──────────┐ ┌──────────┐  ┌────────────┐
-        │   Auth   │ │   Link   │  │ Analytics  │
-        │  :50051  │ │  :50052  │  │   :50053   │
-        └────┬─────┘ └────┬─────┘  └──────▲─────┘
-             │            │  link.clicked │
-             │            └──── Kafka ────┘
-             ▼            ▼                ▼
-        ┌────────────────────────────────────────┐
-        │ PostgreSQL: schemas auth, link, analytics │
-        └────────────────────────────────────────┘
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/architecture-dark.svg">
+  <img src="assets/architecture-light.svg" alt="LinkForge architecture: browsers and CLIs reach the Gateway over HTTPS and WebSocket. The Gateway uses Redis for rate limits and calls Auth, Link and Analytics over gRPC through circuit breakers. Link publishes link.clicked events to Kafka, which Analytics consumes. Each service owns its own schema in PostgreSQL." width="100%">
+</picture>
 
 | Service | Responsibility |
 |---|---|
@@ -48,66 +116,115 @@ parts around them are built: event streaming, circuit breakers, rate limiting an
 
 Services talk gRPC internally. Only the Gateway is reachable from outside, and each service owns its own database schema.
 
-**Stack:** Go, Gin, gRPC, GORM, Kafka, PostgreSQL 16, Redis 7 · React 19, TypeScript, Vite, Tailwind CSS v4, TanStack Query, React Router 7.
+```
+linkforge/
+├── api/openapi.yml           # public API contract (OpenAPI 3)
+├── assets/                   # images for this README
+├── services/                 # one Go module, one binary per service
+│   ├── gateway/              # HTTP gateway (Gin)
+│   ├── auth/ link/ analytics/
+│   │   └── internal/         # config, delivery (gRPC), service, repository, entity
+│   ├── shared/               # protobuf, circuit breaker, Kafka, database, logging, metrics
+│   └── Dockerfile            # multi-stage image, one per service
+├── web/                      # React app: landing, dashboard, API docs, auth pages
+├── monitoring/               # Prometheus (rules + tests), Grafana, Alertmanager
+├── deploy/                   # Caddy edge image and the production runbook
+├── docker-compose.yml        # development infrastructure
+├── docker-compose.prod.yml   # production stack on one VPS
+├── Makefile                  # standard commands
+└── .env.example              # local configuration (copy to .env)
+```
 
 ## Quick start
 
-You need [Go](https://go.dev/dl/) (the version in [`services/go.mod`](services/go.mod)), [Node.js](https://nodejs.org/) 22, and [Docker](https://docs.docker.com/get-docker/).
+### Prerequisites
 
-```bash
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) for PostgreSQL, Redis and Kafka
+- [Go](https://go.dev/dl/), the version in [`services/go.mod`](services/go.mod) or newer
+- [Node.js](https://nodejs.org/) 22 or newer (CI uses the version in [`web/.nvmrc`](web/.nvmrc))
+- `make` (optional, but it shortens the steps below)
+
+### Run it locally
+
+```sh
 git clone https://github.com/deaprima/linkforge.git
 cd linkforge
-cp .env.example .env
+
+cp .env.example .env          # then set DB_PASSWORD and JWT_SECRET, e.g. openssl rand -base64 48
+make up                       # PostgreSQL, Redis and Kafka; waits until all are healthy
 ```
 
-Edit `.env`. For local development you need at least:
+`.env.example` is already set up for local development (the web app on port 5173). Two notes:
 
-```ini
-DB_PASSWORD=choose-something
-JWT_SECRET=a-long-random-string
-GOOGLE_CLIENT_ID=anything          # Auth refuses to start without it; real value only needed for Google sign-in
-FRONTEND_URL=http://localhost:5173
-COOKIE_SECURE=false                # the dev server runs over http
-```
+- `GOOGLE_CLIENT_ID` must not be empty or Auth refuses to start. The placeholder is fine unless you want Google sign-in.
+- Chrome and Firefox accept secure cookies on `http://localhost`. On Safari, set `COOKIE_SECURE=false`.
 
-Start the infrastructure, then each service in its own terminal so the logs stay readable:
+Run each service in its own terminal **from `services/`** (they read `../.env`), so the logs stay readable:
 
-```bash
-docker compose up -d postgres redis kafka
-
+```sh
 cd services
 go run ./auth/cmd/server        # gRPC :50051
 go run ./link/cmd/server        # gRPC :50052
 go run ./analytics/cmd/server   # gRPC :50053
-go run ./gateway/cmd/server     # HTTP :8080  (start this last)
+go run ./gateway/cmd/server     # HTTP :8080, start this last
 ```
 
-```bash
+```sh
 cd web
 npm install
 npm run dev                     # http://localhost:5173
 ```
 
-Open <http://localhost:5173/app/register> and create an account. The API reference is at <http://localhost:5173/app/docs>.
+Open <http://localhost:5173/app/register> and create an account. Check the backend with `curl http://localhost:8080/healthz`.
 
-**Password reset emails.** Without `SMTP_HOST` the Auth service prints the reset link to its log instead of sending mail, which is enough to try the flow locally. See [Configuration](#configuration) for real delivery.
+**Password reset emails.** Without `SMTP_HOST`, Auth prints the reset link to its log instead of sending mail, which is
+enough to try the flow locally.
 
-**Swagger UI.** `docker compose up -d swagger-ui` serves the same spec at <http://localhost:8090>.
+### Standard commands
+
+| Command | What it does |
+|---|---|
+| `make up` / `make down` | Start (and wait for) / stop the development infrastructure |
+| `make lint` | `go vet` and ESLint |
+| `make test` | Go unit tests (integration tests are skipped without their environment) |
+| `make test-integration TEST_DSN=...` | Go tests including the Postgres and Kafka integration tests |
+| `make cover TEST_DSN=...` | Coverage of the core layers per service; fails below 70% |
+| `make proto` | Regenerate Go code from `.proto` files (needs `protoc`, `protoc-gen-go`, `protoc-gen-go-grpc`) |
+| `docker compose up -d swagger-ui` | Swagger UI for the same spec on <http://localhost:8090> |
+
+## Before you open a pull request
+
+```sh
+make lint
+make test
+cd web && npm test && npm run build
+```
+
+Repository tests run against a real PostgreSQL in a throwaway schema, so the development database from `make up` works:
+
+```sh
+make cover TEST_DSN="postgres://<DB_USER>:<DB_PASSWORD>@localhost:5432/linkforge?sslmode=disable"
+```
+
+`make cover` measures handlers, services and repositories (not `main`, generated code or entities). CI runs the same
+check against a Postgres service container, plus the OpenAPI validation, Docker image builds and the alert rule tests.
 
 ## API
 
-Everything the dashboard does is available over HTTP. The full, always up to date reference is the
-[docs page in the web app](http://localhost:5173/app/docs) (built from [`api/openapi.yml`](api/openapi.yml)). A taste:
+Everything the dashboard does is available over HTTP. The full reference is the
+[docs page in the web app](http://localhost:5173/app/docs), built from [`api/openapi.yml`](api/openapi.yml). A taste:
 
-```bash
+```sh
 curl -X POST http://localhost:8080/api/v1/links \
   -H "X-API-Key: lf_sk_..." \
   -H "Content-Type: application/json" \
   -d '{"original_url": "https://example.com/a/very/long/url", "alias": "pitch"}'
 ```
 
-Create an API key under **API keys** in the dashboard. Responses share one envelope (`{ "success": true, "data": ... }` or
-`{ "success": false, "error": { "code": ..., "message": ... } }`); branch on `error.code`.
+Create an API key under **API keys** in the dashboard. Responses share one envelope (`{ "success": true, "data": ... }`
+or `{ "success": false, "error": { "code": ..., "message": ... } }`); branch on `error.code`.
+
+The API is **contract first**: change `api/openapi.yml` before the code, and the docs page updates itself.
 
 ## Configuration
 
@@ -119,14 +236,14 @@ environment win). [`.env.example`](.env.example) lists every option with comment
 | `DB_*`, `REDIS_ADDR`, `KAFKA_BROKERS` | all | Infrastructure addresses |
 | `JWT_SECRET`, `JWT_ACCESS_DURATION`, `JWT_REFRESH_DURATION` | Auth | Token signing and lifetime (15 minutes / 7 days by default) |
 | `FRONTEND_URL`, `BASE_URL`, `CORS_ALLOWED_ORIGINS` | Gateway, Auth | Where the web app lives, and the public origin of short links |
-| `COOKIE_SECURE` | Gateway | Keep `true` in production; `false` only for local http |
+| `COOKIE_SECURE` | Gateway | Keep `true` in production; `false` only for local http on browsers that need it |
 | `TRUSTED_PROXIES` | Gateway | **Required behind a reverse proxy**, otherwise every visitor shares one rate limit |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Auth, Gateway | Google sign-in (leave the secret empty to turn it off) |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | Auth | Password reset email. Port 465 uses TLS, anything else uses STARTTLS |
 | `VERIFY_LIMIT_*`, `FORGOT_LIMIT_*`, `RESET_LIMIT_*` | Gateway | Rate limits for password checks and password reset |
 | `AUTH_LIMIT_*`, `PUBLIC_LIMIT_*`, `USER_LIMIT_*` | Gateway | General rate limits: sign-in per IP, redirects per IP, authenticated API per user |
 | `LOG_FORMAT`, `LOG_LEVEL` | all | `json` (default) or `text`; `debug`, `info`, `warn`, `error` |
-| `DB_DEBUG` | Auth, Link, Analytics | `true` prints every SQL statement with its values to the log. Development only; never in production |
+| `DB_DEBUG` | Auth, Link, Analytics | `true` prints every SQL statement with its values. Development only; never in production |
 | `*_METRICS_ADDR` | all | Internal `/metrics` and `/healthz` listener (`:9100` to `:9103`). Never expose it to the internet |
 | `GEOIP_DB_PATH` | Analytics | Optional [GeoLite2-Country](https://dev.maxmind.com/geoip/geolite2-free-geolocation-data) database; without it countries show as `ZZ` |
 
@@ -138,57 +255,41 @@ environment win). [`.env.example`](.env.example) lists every option with comment
 5xx ratio, gRPC latency and errors per dependency, circuit breaker state, Kafka consumer lag, and click events lost
 before they reach Kafka.
 
-## Project layout
+## Deployment
 
-```
-api/openapi.yml        the public API contract (OpenAPI 3)
-services/
-  gateway/             HTTP gateway
-  auth/  link/  analytics/
-  shared/              protobuf definitions, circuit breaker, database helpers
-web/                   React app: landing, dashboard, docs, auth pages
-docker-compose.yml     PostgreSQL, Redis, Kafka, Swagger UI, Prometheus, Grafana
-monitoring/            Prometheus config and provisioned Grafana dashboard
+The production stack runs on one VPS with Docker Compose. Caddy terminates HTTPS and serves the web app and the API from
+one origin; only ports 80 and 443 are public.
+
+```sh
+cp .env.prod.example .env.prod      # fill in the domain, secrets and SMTP
+docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
 ```
 
-## Development
+The full guide, covering server preparation, updates and rollback, backups, alerts and troubleshooting, is in
+[deploy/README.md](deploy/README.md).
 
-```bash
-# Go (from services/)
-go vet ./...
-go test ./...
+## Documentation
 
-# Web (from web/)
-npm run lint
-npm test
-npm run build
-```
-
-After changing a `.proto` file, regenerate the Go code with `make proto` (needs `protoc`, `protoc-gen-go` and `protoc-gen-go-grpc`).
-Integration tests for Kafka and Postgres are skipped unless their environment is set; see the `Makefile`. Repository tests
-run against a real Postgres in a throwaway schema, so any empty database works:
-
-```bash
-docker run -d --rm -p 55432:5432 -e POSTGRES_PASSWORD=test -e POSTGRES_DB=linkforge postgres:16-alpine
-make cover TEST_DSN="postgres://postgres:test@localhost:55432/linkforge?sslmode=disable"
-```
-
-`make cover` measures the core layers of each service (handlers, services, repositories; not `main`, generated code or
-entities) and fails below 70%. CI runs the same check against a Postgres service container.
-
-The API is **contract first**: change [`api/openapi.yml`](api/openapi.yml) before the code, and the docs page updates itself.
+| Document | Contents |
+|---|---|
+| [deploy/README.md](deploy/README.md) | Production setup, updates, backups, alerts, troubleshooting |
+| [api/openapi.yml](api/openapi.yml) | API contract (OpenAPI 3) |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Workflow, commit messages and branch strategy |
+| [SECURITY.md](SECURITY.md) | How to report a vulnerability |
 
 ## Status
 
-LinkForge is a portfolio project in active development. The core product and web app are done. Still to come: broader
-rate limiting, metrics and dashboards (Prometheus and Grafana), structured logging and a public deployment.
+LinkForge is a portfolio project. The product, the web app, rate limiting, observability and the production stack are
+done. Next up is the public deployment.
 
 ## Contributing
 
-Issues and pull requests are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) first; it covers commit messages and the
-branch flow. To report a security problem, follow [SECURITY.md](SECURITY.md) rather than opening a public issue.
-Everyone taking part is expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+Issues and pull requests are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) first; it covers the workflow,
+commit messages and the branch flow. Everyone taking part is expected to follow the
+[Code of Conduct](CODE_OF_CONDUCT.md).
+
+Found a security problem? Please do not open a public issue; follow [SECURITY.md](SECURITY.md).
 
 ## License
 
-[MIT](LICENSE) © 2026 Dea Prima
+Released under the [MIT](LICENSE) license. © 2026 Dea Prima
