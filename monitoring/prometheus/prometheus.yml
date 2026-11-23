@@ -1,0 +1,20 @@
+# Service Go berjalan di host (bukan di Compose), jadi Prometheus (di container) menjangkaunya lewat
+# host.docker.internal. Ganti target ke nama container/service kalau nanti semuanya di-compose (Fase 4).
+# Port ops ini TIDAK boleh terbuka ke internet — hanya untuk scraper internal.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: gateway
+    static_configs:
+      - targets: ['host.docker.internal:9100']
+  - job_name: auth
+    static_configs:
+      - targets: ['host.docker.internal:9101']
+  - job_name: link
+    static_configs:
+      - targets: ['host.docker.internal:9102']
+  - job_name: analytics
+    static_configs:
+      - targets: ['host.docker.internal:9103']

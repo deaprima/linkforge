@@ -1,0 +1,102 @@
+# Alert dasar LinkForge. Diuji dengan alerts.test.yml:
+#   promtool check rules monitoring/prometheus/alerts.yml
+#   promtool test rules monitoring/prometheus/alerts.test.yml
+#
+# severity=critical: ada yang rusak sekarang (layak membangunkan). severity=warning: perlu dilihat, tidak mendesak.
+# Batas sengaja konservatif supaya tidak berisik untuk satu VPS kecil; sesuaikan setelah melihat trafik nyata.
+groups:
+  - name: linkforge.availability
+    rules:
+      - alert: ServiceDown
+        expr: up{job=~"gateway|auth|link|analytics"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "{{ $labels.job }} is down"
+          description: "Prometheus cannot scrape {{ $labels.job }} ({{ $labels.instance }}) for 2 minutes. The container is down, restarting in a loop, or the ops listener is unreachable."
+
+      - alert: ServiceTargetMissing
+        # up{} menghilang sepenuhnya (target dihapus dari konfigurasi), yang tidak tertangkap ServiceDown
+        expr: count(up{job=~"gateway|auth|link|analytics"}) < 4
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "Fewer than 4 LinkForge services are monitored"
+          description: "Only {{ $value }} of gateway, auth, link, analytics report an `up` series. Check the scrape config."
+
+  - name: linkforge.http
+    rules:
+      - alert: HighErrorRatio
+        # Hanya kalau ada trafik berarti (>0.1 req/s): satu error di jam sepi bukan insiden
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) > 0.05
+          and sum(rate(http_requests_total[5m])) > 0.1
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "More than 5% of requests fail with 5xx"
+          description: "{{ $value | humanizePercentage }} of Gateway responses were 5xx over the last 5 minutes. Check `docker compose logs gateway` and the circuit breaker panel."
+
+      - alert: HighLatency
+        # WebSocket realtime berumur panjang, jadi bukan ukuran latensi
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{route!="/api/v1/analytics/realtime"}[5m]))) > 1
+          and sum(rate(http_requests_total[5m])) > 0.1
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "p95 request latency is above 1s"
+          description: "95th percentile Gateway latency is {{ $value | humanizeDuration }} (excluding the realtime WebSocket)."
+
+      - alert: HeavyRateLimiting
+        expr: sum(rate(http_requests_total{status="429"}[5m])) > 1
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Sustained rate limiting"
+          description: "More than 1 request per second is being rejected with 429 for 10 minutes. Could be abuse, or a shared IP (check TRUSTED_PROXIES)."
+
+  - name: linkforge.dependencies
+    rules:
+      - alert: CircuitBreakerOpen
+        expr: circuit_breaker_state == 2
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "Circuit breaker {{ $labels.name }} is open"
+          description: "The Gateway stopped calling {{ $labels.name }} because too many calls failed. Users get 503 for features that depend on it."
+
+      - alert: DependencyErrorRatio
+        expr: |
+          sum by (dependency) (rate(grpc_client_handled_total{grpc_code=~"Unavailable|DeadlineExceeded|Internal|Unknown"}[5m]))
+            / sum by (dependency) (rate(grpc_client_handled_total[5m])) > 0.1
+          and sum by (dependency) (rate(grpc_client_handled_total[5m])) > 0.05
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "gRPC calls to {{ $labels.dependency }} are failing"
+          description: "{{ $value | humanizePercentage }} of calls from the Gateway to {{ $labels.dependency }} fail with an infrastructure error. The breaker will open if this continues."
+
+  - name: linkforge.events
+    rules:
+      - alert: KafkaConsumerLagHigh
+        expr: kafka_consumer_lag > 1000
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Analytics consumer is {{ $value }} messages behind"
+          description: "Clicks are queued faster than Analytics stores them, so dashboards lag behind reality. Check `docker compose logs analytics` and Postgres."
+
+      - alert: ClickEventsLost
+        expr: increase(link_click_events_dropped_total[10m]) > 0 or increase(link_click_events_failed_total[10m]) > 0
+        labels: { severity: warning }
+        annotations:
+          summary: "Click events are being lost before Kafka"
+          description: "The Link service dropped or failed to publish click events in the last 10 minutes (Kafka down or the buffer is full). These clicks will be missing from analytics."
+
+      - alert: InvalidClickEvents
+        expr: increase(analytics_click_events_total{result="skipped"}[15m]) > 0
+        labels: { severity: warning }
+        annotations:
+          summary: "Analytics is skipping invalid click events"
+          description: "{{ $value }} events could not be decoded in 15 minutes. A producer and consumer likely disagree on the event schema."

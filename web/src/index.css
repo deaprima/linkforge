@@ -1,0 +1,124 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/*
+ * Design token LinkForge — sumber: Figma "Linkforge" (variables color/*).
+ * Nama token mengikuti Figma (ink, paper, signal, ...) dan dipakai langsung di kelas Tailwind:
+ * bg-paper, text-ink, border-grid, text-signal-ink, dst.
+ * Variabel bawaan shadcn (--background, --primary, ...) diarahkan ke token yang sama supaya
+ * komponen behavior (dialog, dropdown, toast) otomatis bergaya LinkForge.
+ */
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --ink: #000000;
+  --paper: #ffffff;
+  --graphite: #5c5c5c;
+  --grid: #eeeeee;
+  --signal: #18a957;
+  --signal-ink: #0b6b35;
+  --signal-soft: #e8f6ee;
+  --stop: #d93b3b;
+  --rule: #cfcfcf;
+
+  /* shadcn → token LinkForge */
+  --radius: 0px;
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: var(--paper);
+  --card-foreground: var(--ink);
+  --popover: var(--paper);
+  --popover-foreground: var(--ink);
+  --primary: var(--ink);
+  --primary-foreground: var(--paper);
+  --secondary: var(--grid);
+  --secondary-foreground: var(--ink);
+  --muted: var(--grid);
+  --muted-foreground: var(--graphite);
+  --accent: var(--signal-soft);
+  --accent-foreground: var(--signal-ink);
+  --destructive: var(--stop);
+  --border: var(--ink);
+  --input: var(--ink);
+  --ring: var(--signal);
+}
+
+.dark {
+  --ink: #e9ecea;
+  --paper: #101211;
+  --graphite: #99a29d;
+  --grid: #1b1e1c;
+  --signal: #2bd674;
+  --signal-ink: #5ce596;
+  --signal-soft: #123020;
+  --stop: #ff5c5c;
+  --rule: #3a403c;
+}
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-paper: var(--paper);
+  --color-graphite: var(--graphite);
+  --color-grid: var(--grid);
+  --color-signal: var(--signal);
+  --color-signal-ink: var(--signal-ink);
+  --color-signal-soft: var(--signal-soft);
+  --color-stop: var(--stop);
+  --color-rule: var(--rule);
+
+  --font-sans: "Instrument Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Martian Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Desain bersudut tajam: semua radius 0 */
+  --radius-sm: var(--radius);
+  --radius-md: var(--radius);
+  --radius-lg: var(--radius);
+  --radius-xl: var(--radius);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+/* Latar grid 24px landing page (Figma "Grid"): garis 1px tiap 24px, warna token grid. */
+/* Gutter samping: 40px, melebar di layar besar supaya isi tetap di tengah (maks 1312px) sementara garis bagian penuh lebar. */
+@utility px-gutter {
+  padding-inline: max(2.5rem, calc((100% - 1312px) / 2));
+}
+
+.sheet-grid {
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-position: 24px 24px;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-paper font-sans text-ink antialiased;
+  }
+}

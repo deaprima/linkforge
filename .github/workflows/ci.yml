@@ -1,0 +1,121 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    name: Go (vet, test, coverage)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services
+    # Postgres sungguhan untuk integration test repository (tanpa ini test-nya di-skip)
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: linkforge
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DSN: postgres://postgres:test@localhost:5432/linkforge?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: services/go.mod
+          cache-dependency-path: services/go.sum
+      - run: go vet ./...
+      - run: go test -race ./...
+      # Gagal kalau coverage lapisan inti salah satu service < 70% (AI-RULES.md bagian 5)
+      - run: bash ../scripts/coverage.sh
+
+  web:
+    name: Web (lint, test, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  openapi:
+    name: OpenAPI spec
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: web/.nvmrc
+      - run: npx --yes @apidevtools/swagger-cli validate api/openapi.yml
+
+  docker:
+    name: Docker (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [gateway, auth, link, analytics, edge]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Production compose file is valid
+        if: matrix.target == 'gateway'
+        run: |
+          {
+            echo DB_PASSWORD=x
+            echo JWT_SECRET=x
+            echo GRAFANA_ADMIN_PASSWORD=x
+            echo SITE_ADDRESS=example.com
+            echo ACME_EMAIL=a@example.com
+          } > ci.env
+          docker compose --env-file ci.env -f docker-compose.prod.yml config -q
+      - name: Build image
+        run: |
+          if [ "${{ matrix.target }}" = edge ]; then
+            docker build -f deploy/Dockerfile.edge -t linkforge/edge .
+          else
+            docker build -f services/Dockerfile --build-arg SERVICE=${{ matrix.target }} -t linkforge/${{ matrix.target }} services
+          fi
+
+  alerts:
+    name: Prometheus alert rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check rules and run their unit tests
+        run: |
+          docker run --rm --entrypoint promtool -v "$PWD/monitoring/prometheus:/rules:ro" prom/prometheus:v2.55.1 check rules /rules/alerts.yml
+          docker run --rm --entrypoint promtool -v "$PWD/monitoring/prometheus:/rules:ro" prom/prometheus:v2.55.1 test rules /rules/alerts.test.yml
+      - name: Check the Alertmanager config the entrypoint generates
+        run: |
+          docker run --rm --entrypoint /bin/sh -v "$PWD/monitoring/alertmanager:/am:ro" \
+            -e ALERT_GENERATE_ONLY=1 -e ALERT_CONFIG_OUT=/tmp/am.yml \
+            -e ALERT_EMAIL_TO=ops@example.com -e ALERT_SMTP_HOST=smtp.example.com -e 'ALERT_SMTP_FROM=LinkForge <no-reply@example.com>' \
+            -e ALERT_SMTP_USER=mailer -e 'ALERT_SMTP_PASS=p"a\ss&w|o/r$d' \
+            prom/alertmanager:v0.27.0 -c 'sh /am/entrypoint.sh && /bin/amtool check-config /tmp/am.yml'

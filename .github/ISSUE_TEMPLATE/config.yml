@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/deaprima/linkforge/security/advisories/new
+    about: Please report security problems privately, not as a public issue.
+  - name: API reference
+    url: https://github.com/deaprima/linkforge/blob/main/api/openapi.yml
+    about: The OpenAPI spec, if your question is about how an endpoint behaves.

@@ -1,0 +1,66 @@
+# Satu origin untuk semuanya (cookie sesi HttpOnly dan redirect Gateway bergantung pada ini):
+#   /api/*                         -> Gateway
+#   /, /app/*, /assets/*, favicon  -> build web statis (SPA)
+#   /<alias>, /<alias>/verify      -> Gateway (short link hidup di root)
+#
+# SITE_ADDRESS = domain publik (mis. linkforge.deaprima.my.id) -> HTTPS otomatis (Let's Encrypt).
+# SITE_ADDRESS=:80 -> HTTP saja, untuk mencoba stack di lokal.
+{
+	email {$ACME_EMAIL:webmaster@localhost}
+}
+
+{$SITE_ADDRESS:localhost} {
+	encode zstd gzip
+
+	log {
+		output stdout
+		format json
+	}
+
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		Strict-Transport-Security "max-age=15552000"
+		-Server
+	}
+
+	# Tidak pernah lewat edge: metrics ada di listener internal, readiness membocorkan status dependency.
+	# (alias "metrics" dan "readyz" memang di-reserve Link Service.)
+	# Harus berupa `handle` dan di urutan pertama: `respond` di luar handle baru dievaluasi SETELAH handle yang
+	# menangkap semua path (catch-all di bawah), sehingga request lolos ke Gateway.
+	@internal path /metrics /metrics/* /readyz
+	handle @internal {
+		respond 404
+	}
+
+	handle /api/* {
+		reverse_proxy gateway:8080
+	}
+
+	# Asset ber-hash: cache selamanya; file yang tidak ada = 404 asli, bukan index.html
+	handle /assets/* {
+		root * /srv/web
+		header Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+
+	handle /favicon.svg {
+		root * /srv/web
+		file_server
+	}
+
+	# Halaman SPA: landing dan semua /app/*; index.html tidak di-cache supaya deploy baru langsung terlihat
+	@spa path / /app /app/*
+	handle @spa {
+		root * /srv/web
+		header Cache-Control "no-cache"
+		try_files /index.html
+		file_server
+	}
+
+	# Sisanya: short link (/<alias>), /<alias>/verify, /healthz
+	handle {
+		reverse_proxy gateway:8080
+	}
+}

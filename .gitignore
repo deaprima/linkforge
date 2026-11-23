@@ -1,10 +1,13 @@
-docs/
+/docs/
+.agents/
 
 # Environment
 .env
 .env.local
 .env.*.local
+.env.prod
 !.env.example
+!.env.prod.example
 
 # Go
 *.exe

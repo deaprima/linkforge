@@ -1,0 +1,3 @@
+# Skrip shell harus selalu LF: dijalankan di dalam container Linux dan CI, dan CRLF merusak shebang/sh.
+# (Repo ini dipakai di Windows dengan core.autocrlf=true.)
+*.sh text eol=lf

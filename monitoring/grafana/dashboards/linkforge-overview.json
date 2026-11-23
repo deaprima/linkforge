@@ -1,0 +1,118 @@
+{
+  "uid": "linkforge-overview",
+  "title": "LinkForge Overview",
+  "tags": ["linkforge"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {"from": "now-1h", "to": "now"},
+  "panels": [
+    {
+      "id": 1, "title": "Targets up", "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4},
+      "fieldConfig": {"defaults": {
+        "mappings": [{"type": "value", "options": {"0": {"text": "DOWN", "color": "red"}, "1": {"text": "UP", "color": "green"}}}],
+        "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}
+      }, "overrides": []},
+      "options": {"colorMode": "background", "textMode": "value_and_name"},
+      "targets": [{"refId": "A", "expr": "up", "legendFormat": "{{job}}"}]
+    },
+    {
+      "id": 2, "title": "Circuit breaker state", "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 6, "y": 0, "w": 6, "h": 4},
+      "fieldConfig": {"defaults": {
+        "mappings": [{"type": "value", "options": {
+          "0": {"text": "CLOSED", "color": "green"},
+          "1": {"text": "HALF-OPEN", "color": "orange"},
+          "2": {"text": "OPEN", "color": "red"}}}],
+        "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 1}, {"color": "red", "value": 2}]}
+      }, "overrides": []},
+      "options": {"colorMode": "background", "textMode": "value_and_name"},
+      "targets": [{"refId": "A", "expr": "max by (name) (circuit_breaker_state)", "legendFormat": "{{name}}"}]
+    },
+    {
+      "id": 3, "title": "5xx error ratio (Gateway)", "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 12, "y": 0, "w": 6, "h": 4},
+      "fieldConfig": {"defaults": {
+        "unit": "percentunit", "decimals": 2,
+        "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 0.01}, {"color": "red", "value": 0.05}]}
+      }, "overrides": []},
+      "options": {"colorMode": "background"},
+      "targets": [{"refId": "A", "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m])) / clamp_min(sum(rate(http_requests_total[5m])), 1e-9)"}]
+    },
+    {
+      "id": 4, "title": "Kafka consumer lag", "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 18, "y": 0, "w": 6, "h": 4},
+      "fieldConfig": {"defaults": {
+        "unit": "short",
+        "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 100}, {"color": "red", "value": 1000}]}
+      }, "overrides": []},
+      "options": {"colorMode": "background", "textMode": "value_and_name"},
+      "targets": [{"refId": "A", "expr": "kafka_consumer_lag", "legendFormat": "{{topic}} / {{group}}"}]
+    },
+    {
+      "id": 5, "title": "HTTP request rate by route", "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 0, "y": 4, "w": 12, "h": 8},
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+      "targets": [{"refId": "A", "expr": "sum by (route) (rate(http_requests_total[5m]))", "legendFormat": "{{route}}"}]
+    },
+    {
+      "id": 6, "title": "HTTP p95 latency by route", "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 12, "y": 4, "w": 12, "h": 8},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "targets": [{"refId": "A", "expr": "histogram_quantile(0.95, sum by (le, route) (rate(http_request_duration_seconds_bucket[5m])))", "legendFormat": "{{route}}"}]
+    },
+    {
+      "id": 7, "title": "HTTP responses by status", "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 0, "y": 12, "w": 12, "h": 8},
+      "fieldConfig": {"defaults": {"unit": "reqps", "custom": {"stacking": {"mode": "normal"}, "fillOpacity": 40}}, "overrides": []},
+      "targets": [{"refId": "A", "expr": "sum by (status) (rate(http_requests_total[5m]))", "legendFormat": "{{status}}"}]
+    },
+    {
+      "id": 8, "title": "gRPC client p95 latency by dependency", "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 12, "y": 12, "w": 12, "h": 8},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "targets": [{"refId": "A", "expr": "histogram_quantile(0.95, sum by (le, dependency) (rate(grpc_client_handling_seconds_bucket[5m])))", "legendFormat": "{{dependency}}"}]
+    },
+    {
+      "id": 9, "title": "gRPC client errors (non-OK) by dependency", "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 0, "y": 20, "w": 12, "h": 8},
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "targets": [{"refId": "A", "expr": "sum by (dependency, grpc_code) (rate(grpc_client_handled_total{grpc_code!=\"OK\"}[5m]))", "legendFormat": "{{dependency}} {{grpc_code}}"}]
+    },
+    {
+      "id": 10, "title": "gRPC server p95 latency by method", "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 12, "y": 20, "w": 12, "h": 8},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "targets": [{"refId": "A", "expr": "histogram_quantile(0.95, sum by (le, grpc_method) (rate(grpc_server_handling_seconds_bucket[5m])))", "legendFormat": "{{grpc_method}}"}]
+    },
+    {
+      "id": 11, "title": "Click events consumed (Analytics)", "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 0, "y": 28, "w": 12, "h": 8},
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "targets": [{"refId": "A", "expr": "sum by (result) (rate(analytics_click_events_total[5m]))", "legendFormat": "{{result}}"}]
+    },
+    {
+      "id": 12, "title": "Click events lost before Kafka (Link)", "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 12, "y": 28, "w": 12, "h": 8},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "targets": [
+        {"refId": "A", "expr": "increase(link_click_events_dropped_total[5m])", "legendFormat": "dropped (buffer full)"},
+        {"refId": "B", "expr": "increase(link_click_events_failed_total[5m])", "legendFormat": "failed (kafka write)"}
+      ]
+    }
+  ]
+}

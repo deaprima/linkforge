@@ -1,0 +1,14 @@
+# Konteks build dijaga kecil dan bebas rahasia
+.git
+.github
+.agents
+.env
+.env.*
+!.env.example
+docs
+logs
+bin
+**/node_modules
+web/dist
+**/*.test
+**/*.exe

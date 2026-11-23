@@ -1,0 +1,11 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="300" height="10" viewBox="0 0 300 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Original bar" clip-path="url(#clip0_0_4)">
+<path id="Vector" d="M299.5 0.5H0.5V9.5H299.5V0.5Z" fill="#101211" stroke="#E9ECEA"/>
+<path id="Vector_2" d="M298 2H115V8H298V2Z" stroke="#3A403C" stroke-dasharray="3 3"/>
+</g>
+<defs>
+<clipPath id="clip0_0_4">
+<rect width="300" height="10" fill="white"/>
+</clipPath>
+</defs>
+</svg>

@@ -1,5 +1,34 @@
 # Contributing Guide — LinkForge
 
+Thanks for helping. This page covers how to set the project up, what a good pull request looks like, and the commit and
+branch conventions. Questions about the API itself are answered by the [OpenAPI spec](api/openapi.yml).
+
+## Getting started
+
+The [README](README.md#quick-start) walks through running the stack locally. Before you open a pull request, make sure
+these pass:
+
+```bash
+# from services/
+go vet ./...
+go test ./...
+
+# from web/
+npm run lint
+npm test
+npm run build
+```
+
+## Making a change
+
+- **Contract first.** If you add or change an endpoint, edit `api/openapi.yml` before the code. The docs page in the web
+  app is generated from that file, so it stays correct automatically.
+- **Add tests** for new behaviour. Services are tested with in-memory fakes, so tests need no database or Kafka.
+- **Keep it focused.** One pull request, one purpose. Large changes are easier to review after a short issue discussion.
+- **Security issues** go through [SECURITY.md](SECURITY.md), not a public issue.
+
+By taking part you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## Commit Message Convention
 
 Project ini menggunakan standar **[Conventional Commits](https://www.conventionalcommits.org/)**.
@@ -127,3 +156,24 @@ HttpOnly Cookie secara otomatis.
 2. **Panjang deskripsi**: maksimal 72 karakter.
 3. **Bahasa**: gunakan **Bahasa Inggris** untuk konsistensi dan supaya bisa dibaca secara internasional (ini portofolio publik!).
 4. **Satu commit = satu tujuan**: jangan campur refactor dengan fitur baru dalam satu commit.
+
+
+## Branch Strategy
+Project ini menggunakan **Git Flow**:
+| Branch | Fungsi |
+|---|---|
+| `main` | Production only. Hanya menerima merge dari `develop`. |
+| `develop` | Integration branch. Semua feature branch merge ke sini. |
+| `feat/*` | Fitur baru |
+| `fix/*` | Bug fix |
+| `docs/*` | Perubahan dokumentasi |
+| `chore/*` | Konfigurasi, setup, dependency |
+| `ci/*` | CI/CD workflow |
+| `refactor/*` | Refactoring tanpa perubahan perilaku |
+
+### Flow Kerja
+1. Checkout dari `develop` → buat branch baru
+2. Kerjakan perubahan → commit dengan Conventional Commits
+3. Push branch → buat Pull Request ke `develop`
+4. Merge ke `develop` setelah review
+5. `develop` → `main` hanya saat siap release/deploy
