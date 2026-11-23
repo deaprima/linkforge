@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="560" viewBox="0 0 900 560" role="img" aria-label="LinkForge architecture">
+<style>
+  text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; text-anchor: middle; }
+  .box { fill: #161D1A; stroke: #2C3631; stroke-width: 1.5; }
+  .box.accent { fill: #12261B; stroke: #2BD674; }
+  .title { fill: #E9ECEA; font-size: 17px; font-weight: 600; }
+  .title.sm { font-size: 15px; }
+  .sub { fill: #9AA59F; font-size: 12.5px; }
+  .label { fill: #9AA59F; font-size: 12px; font-weight: 500; }
+  .label.start { text-anchor: start; }
+  .pill { fill: #0D1210; stroke: #2C3631; stroke-width: 1.2; }
+  .event { fill: #2BD674; font-size: 12px; font-weight: 600; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .edge { stroke: #6F7A74; stroke-width: 1.6; fill: none; }
+  .edge.hot { stroke: #2BD674; }
+  .chip { fill: #0D1210; stroke: #2C3631; stroke-width: 1.2; }
+  .chiptext { fill: #E9ECEA; font-size: 12.5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .zone { fill: none; stroke: #2C3631; stroke-width: 1.2; stroke-dasharray: 4 6; }
+  .zonelabel { fill: #9AA59F; font-size: 11px; font-weight: 600; letter-spacing: 1.2px; text-anchor: start; }
+</style>
+<defs>
+  <marker id="head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="#6F7A74"/>
+  </marker>
+  <marker id="hothead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="#2BD674"/>
+  </marker>
+</defs>
+<rect width="900" height="560" rx="16" fill="#0D1210"/>
+<rect class="box" x="350" y="28" width="200" height="54" rx="12"/>
+<text class="title sm" x="450.0" y="61.0">Browser · CLI</text>
+<line class="edge" x1="450" y1="82" x2="450" y2="132" marker-end="url(#head)"/>
+<text class="label start" x="460" y="112">HTTPS + WebSocket</text>
+<rect class="zone" x="24" y="120" width="852" height="416" rx="14"/>
+<text class="zonelabel" x="40" y="142">INTERNAL NETWORK</text>
+<rect class="box accent" x="250" y="134" width="400" height="76" rx="12"/>
+<text class="title" x="450.0" y="166.0">Gateway</text>
+<text class="sub" x="450.0" y="188.0">Gin · :8080 · routing, sessions, rate limits, QR, breakers</text>
+<rect class="box" x="704" y="145" width="150" height="54" rx="12"/>
+<text class="title sm" x="779.0" y="166.0">Redis</text>
+<text class="sub" x="779.0" y="188.0">rate limit counters</text>
+<line class="edge" x1="650" y1="172" x2="704" y2="172" stroke-dasharray="5 5" marker-end="url(#head)"/>
+<rect class="box" x="44" y="290" width="172" height="72" rx="12"/>
+<text class="title" x="130.0" y="320.0">Auth</text>
+<text class="sub" x="130.0" y="342.0">:50051 · accounts, tokens</text>
+<rect class="box" x="264" y="290" width="172" height="72" rx="12"/>
+<text class="title" x="350.0" y="320.0">Link</text>
+<text class="sub" x="350.0" y="342.0">:50052 · links, redirects</text>
+<rect class="box" x="684" y="290" width="172" height="72" rx="12"/>
+<text class="title" x="770.0" y="320.0">Analytics</text>
+<text class="sub" x="770.0" y="342.0">:50053 · click stats</text>
+<line class="edge" x1="330" y1="210" x2="130" y2="290" marker-end="url(#head)"/>
+<line class="edge" x1="400" y1="210" x2="350" y2="290" marker-end="url(#head)"/>
+<line class="edge" x1="570" y1="210" x2="770" y2="290" marker-end="url(#head)"/>
+<rect class="pill" x="338" y="236" width="224" height="24" rx="12"/>
+<text class="label" x="450" y="252">gRPC · circuit breaker per dependency</text>
+<rect class="box" x="484" y="299" width="156" height="54" rx="12"/>
+<text class="title sm" x="562.0" y="320.0">Kafka</text>
+<text class="sub" x="562.0" y="342.0">KRaft</text>
+<line class="edge hot" x1="436" y1="326" x2="484" y2="326" marker-end="url(#hothead)"/>
+<line class="edge hot" x1="640" y1="326" x2="684" y2="326" marker-end="url(#hothead)"/>
+<text class="event" x="562" y="380">link.clicked</text>
+<rect class="box" x="44" y="430" width="812" height="86" rx="12"/>
+<text class="title" x="450.0" y="479.0"></text>
+<text class="title" x="450" y="458">PostgreSQL 16</text>
+<rect class="chip" x="55.0" y="474" width="150" height="28" rx="8"/>
+<text class="chiptext" x="130" y="492">schema auth</text>
+<rect class="chip" x="275.0" y="474" width="150" height="28" rx="8"/>
+<text class="chiptext" x="350" y="492">schema link</text>
+<rect class="chip" x="695.0" y="474" width="150" height="28" rx="8"/>
+<text class="chiptext" x="770" y="492">schema analytics</text>
+<line class="edge" x1="130" y1="362" x2="130" y2="474" marker-end="url(#head)"/>
+<line class="edge" x1="350" y1="362" x2="350" y2="474" marker-end="url(#head)"/>
+<line class="edge" x1="770" y1="362" x2="770" y2="474" marker-end="url(#head)"/>
+</svg>
