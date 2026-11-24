@@ -37,7 +37,7 @@ jobs:
     env:
       TEST_DSN: postgres://postgres:test@localhost:5432/linkforge?sslmode=disable
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
         with:
           go-version-file: services/go.mod
@@ -54,7 +54,7 @@ jobs:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version-file: web/.nvmrc
@@ -69,7 +69,7 @@ jobs:
     name: OpenAPI spec
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version-file: web/.nvmrc
@@ -83,7 +83,7 @@ jobs:
       matrix:
         target: [gateway, auth, link, analytics, edge]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Production compose file is valid
         if: matrix.target == 'gateway'
         run: |
@@ -107,7 +107,7 @@ jobs:
     name: Prometheus alert rules
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check rules and run their unit tests
         run: |
           docker run --rm --entrypoint promtool -v "$PWD/monitoring/prometheus:/rules:ro" prom/prometheus:v2.55.1 check rules /rules/alerts.yml
