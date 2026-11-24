@@ -9,4 +9,6 @@ declare module "virtual:openapi" {
 interface ImportMetaEnv {
   /** URL Swagger UI (mis. http://localhost:8090). Kosong = tombol "Try it" disembunyikan. */
   readonly VITE_SWAGGER_URL?: string;
+  /** Origin web app saat landing di-host terpisah (mis. Vercel). Kosong = satu origin dengan app. */
+  readonly VITE_APP_ORIGIN?: string;
 }

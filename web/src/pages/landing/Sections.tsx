@@ -1,5 +1,5 @@
 import { Fragment, type ReactNode } from "react";
-import { Link } from "react-router";
+import { AppLink } from "@/pages/landing/AppLink";
 import arrowDark from "@/assets/landing/arrow-dark.svg";
 import arrowLight from "@/assets/landing/arrow-light.svg";
 import qrDark from "@/assets/landing/qr-dark.svg";
@@ -125,9 +125,9 @@ export function Developers() {
         <p className="text-[17px] leading-[1.5] text-graphite">
           Create an API key in the dashboard and send it in the <code className="font-mono text-sm text-ink">X-API-Key</code> header. Each key is shown once, stored only as a hash, and can be revoked without touching your other keys.
         </p>
-        <Link to="/app/docs" className={buttonClass({ variant: "outline" }, "mt-2")}>
+        <AppLink to="/app/docs" className={buttonClass({ variant: "outline" }, "mt-2")}>
           Read the API reference
-        </Link>
+        </AppLink>
       </div>
       <div className="min-w-0 flex-1 overflow-x-auto border border-ink bg-paper p-6">
         <pre className="font-mono text-xs leading-[1.75] whitespace-pre text-ink">
@@ -172,12 +172,12 @@ export function Cta() {
         </div>
       </div>
       <div className="flex gap-3">
-        <Link to="/app/register" className={buttonClass({})}>
+        <AppLink to="/app/register" className={buttonClass({})}>
           Create free account
-        </Link>
-        <Link to="/app/login" className={buttonClass({ variant: "outline" })}>
+        </AppLink>
+        <AppLink to="/app/login" className={buttonClass({ variant: "outline" })}>
           Sign in
-        </Link>
+        </AppLink>
       </div>
       </div>
     </section>
