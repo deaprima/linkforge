@@ -12,6 +12,7 @@ import { Logo, ThemeToggle } from "@/components/brand/Brand";
 import { Themed } from "@/components/brand/Icons";
 import { buttonClass } from "@/components/ui/primitives";
 import { useMe } from "@/lib/auth";
+import { APP_ORIGIN, AppLink } from "@/pages/landing/AppLink";
 import { Hero } from "@/pages/landing/Hero";
 import { REPO_URL } from "@/pages/landing/links";
 import { MobileCta, MobileDevelopers, MobileFeatures, MobileHero, MobileHowItWorks } from "@/pages/landing/Mobile";
@@ -32,10 +33,12 @@ const navLinks = [
 
 function Nav() {
   const [open, setOpen] = useState(false);
-  const { data: user, isPending } = useMe();
+  // Landing di origin lain (APP_ORIGIN): cookie sesi tidak terbaca dari sini, jadi tidak perlu cek /auth/me.
+  // Tombol tamu tetap aman: halaman login app sendiri mengalihkan user yang sudah login ke dashboard.
+  const { data: user, isPending } = useMe({ enabled: !APP_ORIGIN });
   // Selama status login belum diketahui, tombol tamu tetap dirender tapi tak tampak: layout tidak bergeser
   // dan pengguna yang sudah login tidak sempat melihat "Create free account" berkedip.
-  const pendingHide = isPending ? "invisible" : "";
+  const pendingHide = isPending && !APP_ORIGIN ? "invisible" : "";
   return (
     <div className="sticky top-0 z-30">
       <header className="flex h-[60px] items-center justify-between border-b border-ink bg-paper px-4 lg:h-[72px] lg:px-gutter">
@@ -48,9 +51,9 @@ function Nav() {
               {l.label}
             </a>
           ))}
-          <Link to="/app/docs" className="hover:underline">
+          <AppLink to="/app/docs" className="hover:underline">
             Docs
-          </Link>
+          </AppLink>
           <a href={REPO_URL} className="hover:underline">
             GitHub
           </a>
@@ -58,17 +61,17 @@ function Nav() {
         <div className="flex items-center gap-2.5">
           <ThemeToggle />
           {user ? (
-            <Link to="/app/dashboard" className={buttonClass({ size: "sm" }, "hidden lg:inline-flex")}>
+            <AppLink to="/app/dashboard" className={buttonClass({ size: "sm" }, "hidden lg:inline-flex")}>
               Dashboard
-            </Link>
+            </AppLink>
           ) : (
             <>
-              <Link to="/app/login" className={buttonClass({ variant: "outline", size: "sm" }, cn("hidden lg:inline-flex", pendingHide))}>
+              <AppLink to="/app/login" className={buttonClass({ variant: "outline", size: "sm" }, cn("hidden lg:inline-flex", pendingHide))}>
                 Sign in
-              </Link>
-              <Link to="/app/register" className={buttonClass({ size: "sm" }, cn("hidden lg:inline-flex", pendingHide))}>
+              </AppLink>
+              <AppLink to="/app/register" className={buttonClass({ size: "sm" }, cn("hidden lg:inline-flex", pendingHide))}>
                 Create free account
-              </Link>
+              </AppLink>
             </>
           )}
           <button
@@ -90,25 +93,25 @@ function Nav() {
               {l.label}
             </a>
           ))}
-          <Link to="/app/docs" className="text-[15px]">
+          <AppLink to="/app/docs" className="text-[15px]">
             Docs
-          </Link>
+          </AppLink>
           <a href={REPO_URL} className="text-[15px]">
             GitHub
           </a>
           <div className="flex flex-col gap-2.5 pt-1">
             {user ? (
-              <Link to="/app/dashboard" className={buttonClass({}, "w-full")}>
+              <AppLink to="/app/dashboard" className={buttonClass({}, "w-full")}>
                 Dashboard
-              </Link>
+              </AppLink>
             ) : (
               <>
-                <Link to="/app/register" className={buttonClass({}, "w-full")}>
+                <AppLink to="/app/register" className={buttonClass({}, "w-full")}>
                   Create free account
-                </Link>
-                <Link to="/app/login" className={buttonClass({ variant: "outline" }, "w-full")}>
+                </AppLink>
+                <AppLink to="/app/login" className={buttonClass({ variant: "outline" }, "w-full")}>
                   Sign in
-                </Link>
+                </AppLink>
               </>
             )}
           </div>
@@ -183,12 +186,12 @@ function TitleBlock() {
           <a href={REPO_URL} className="hover:underline">
             GitHub
           </a>
-          <Link to="/app/docs" className="hover:underline">
+          <AppLink to="/app/docs" className="hover:underline">
             API
-          </Link>
-          <Link to="/app/terms" className="hover:underline">
+          </AppLink>
+          <AppLink to="/app/terms" className="hover:underline">
             Terms
-          </Link>
+          </AppLink>
         </span>
       </TitleCell>
       <TitleCell label="Rev." className="lg:flex-[0.5]">

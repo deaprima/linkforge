@@ -6,8 +6,9 @@ import { ApiError, request, type User } from "@/lib/api";
 const ME_KEY = ["me"] as const;
 
 /** User yang sedang login, atau null kalau belum login (401 setelah refresh gagal). */
-export function useMe() {
+export function useMe({ enabled = true }: { enabled?: boolean } = {}) {
   return useQuery({
+    enabled,
     queryKey: ME_KEY,
     queryFn: async () => {
       try {

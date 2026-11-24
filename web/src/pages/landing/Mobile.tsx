@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Link } from "react-router";
+import { AppLink } from "@/pages/landing/AppLink";
 import barOriginalDark from "@/assets/landing/bar-original-dark.svg";
 import barOriginalLight from "@/assets/landing/bar-original-light.svg";
 import barShortDark from "@/assets/landing/bar-short-dark.svg";
@@ -38,9 +38,9 @@ export function MobileHero() {
         LinkForge turns long URLs into short ones you control, with custom names, expiry dates, passwords, QR codes and live click analytics. Free and open source.
       </p>
       <div className="mt-6 flex flex-col gap-2.5">
-        <Link to="/app/register" className={buttonClass({}, "w-full")}>
+        <AppLink to="/app/register" className={buttonClass({}, "w-full")}>
           Create free account
-        </Link>
+        </AppLink>
         <a href={REPO_URL} className={buttonClass({ variant: "outline" }, "w-full")}>
           Read the source
         </a>
@@ -169,9 +169,9 @@ export function MobileDevelopers() {
           </code>
         </pre>
       </div>
-      <Link to="/app/docs" className={buttonClass({ variant: "outline" }, "mt-4 w-full")}>
+      <AppLink to="/app/docs" className={buttonClass({ variant: "outline" }, "mt-4 w-full")}>
         Read the API reference
-      </Link>
+      </AppLink>
     </section>
   );
 }
@@ -185,9 +185,9 @@ export function MobileCta() {
         Make your first short link
       </h2>
       <p className="mt-3 text-[15px] text-graphite">Sign up with email or Google. No card needed.</p>
-      <Link to="/app/register" className={buttonClass({}, "mt-8 w-full")}>
+      <AppLink to="/app/register" className={buttonClass({}, "mt-8 w-full")}>
         Create free account
-      </Link>
+      </AppLink>
       </div>
     </section>
   );

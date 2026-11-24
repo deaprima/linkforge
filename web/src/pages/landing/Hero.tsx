@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { AppLink } from "@/pages/landing/AppLink";
 import dimensionDark from "@/assets/landing/dimension-dark.svg";
 import dimensionLight from "@/assets/landing/dimension-light.svg";
 import { Themed } from "@/components/brand/Icons";
@@ -49,9 +49,9 @@ export function Hero() {
           LinkForge turns long URLs into short ones you control, with custom names, expiry dates, passwords, QR codes and live click analytics. Free and open source.
         </p>
         <div className="mt-9 flex gap-3">
-          <Link to="/app/register" className={buttonClass({})}>
+          <AppLink to="/app/register" className={buttonClass({})}>
             Create free account
-          </Link>
+          </AppLink>
           <a href={REPO_URL} className={buttonClass({ variant: "outline" })}>
             Read the source
           </a>
